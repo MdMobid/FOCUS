@@ -1,6 +1,6 @@
 /**
  * FOCUS Parent Dashboard Client
- * Real-time REST polling, authentication, and system control.
+ * Real-time REST & Firebase Cloud sync, authentication, and system control.
  */
 
 const API_BASE = window.location.origin;
@@ -17,6 +17,9 @@ const loginForm = document.getElementById("login-form");
 const pinInput = document.getElementById("pin-input");
 const loginError = document.getElementById("login-error");
 const logoutBtn = document.getElementById("logout-btn");
+const loginCloudBtn = document.getElementById("login-cloud-btn");
+const loginCloudBtnText = document.getElementById("login-cloud-btn-text");
+const loginSubtitle = document.getElementById("login-subtitle");
 
 const cloudModal = document.getElementById("cloud-modal");
 const cloudCfgBtn = document.getElementById("cloud-cfg-btn");
@@ -43,6 +46,46 @@ const screenshotContainer = document.getElementById("screenshot-container");
 const screenshotImg = document.getElementById("screenshot-img");
 
 // --- 1. Cloud & API Helper ---
+function updateCloudModeIndicator() {
+  const isCloudHost = window.location.hostname.includes("github.io") || !!fbUrl;
+  if (fbUrl && fbSecret) {
+    if (loginCloudBtnText) loginCloudBtnText.textContent = "Firebase Cloud: Linked 🟢 (Tap to edit)";
+    if (loginSubtitle) loginSubtitle.innerHTML = "Cloud Remote Mode &bull; Enter Master PIN";
+  } else if (isCloudHost) {
+    if (loginCloudBtnText) loginCloudBtnText.textContent = "⚙️ Configure Firebase Cloud (Required on GitHub Pages)";
+    if (loginSubtitle) loginSubtitle.innerHTML = "<span style='color: #f59e0b;'>⚠️ Tap Cloud Setup Below to Connect</span>";
+  } else {
+    if (loginCloudBtnText) loginCloudBtnText.textContent = "☁️ Firebase Cloud Setup";
+    if (loginSubtitle) loginSubtitle.textContent = "Enter your Parent Master PIN to access controls";
+  }
+}
+
+function openCloudModal() {
+  cfgFbUrl.value = fbUrl || "https://my-focus-app-c316d-default-rtdb.firebaseio.com";
+  cfgFbSecret.value = fbSecret;
+  cloudModal.style.display = "flex";
+}
+
+loginCloudBtn?.addEventListener("click", openCloudModal);
+cloudCfgBtn?.addEventListener("click", openCloudModal);
+
+closeCloudBtn?.addEventListener("click", () => {
+  cloudModal.style.display = "none";
+});
+
+saveCloudBtn?.addEventListener("click", () => {
+  fbUrl = cfgFbUrl.value.trim();
+  fbSecret = cfgFbSecret.value.trim();
+  localStorage.setItem("focus_fb_url", fbUrl);
+  localStorage.setItem("focus_fb_secret", fbSecret);
+  cloudModal.style.display = "none";
+  updateCloudModeIndicator();
+  alert("Firebase Cloud credentials saved! Now enter your Parent Master PIN to unlock.");
+  if (authToken) {
+    pollStatus();
+  }
+});
+
 async function sendAction(action, extraPayload = {}) {
   const payload = { action, timestamp: Date.now(), ...extraPayload };
   if (fbUrl) {
@@ -81,54 +124,98 @@ function handleUnauthorized() {
   localStorage.removeItem("focus_parent_token");
   loginModal.style.display = "flex";
   appContainer.style.display = "none";
+  updateCloudModeIndicator();
 }
 
-// Cloud Configuration Modal handlers
-cloudCfgBtn?.addEventListener("click", () => {
-  cfgFbUrl.value = fbUrl;
-  cfgFbSecret.value = fbSecret;
-  cloudModal.style.display = "flex";
-});
-
-closeCloudBtn?.addEventListener("click", () => {
-  cloudModal.style.display = "none";
-});
-
-saveCloudBtn?.addEventListener("click", () => {
-  fbUrl = cfgFbUrl.value.trim();
-  fbSecret = cfgFbSecret.value.trim();
-  localStorage.setItem("focus_fb_url", fbUrl);
-  localStorage.setItem("focus_fb_secret", fbSecret);
-  cloudModal.style.display = "none";
-  alert("Firebase Cloud Mode configured! You can now control the PC from 1,000 km away.");
-  pollStatus();
-});
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str.trim()));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 // --- 2. Authentication ---
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   loginError.textContent = "";
   const pin = pinInput.value.trim();
+  if (!pin) return;
 
-  try {
-    const res = await fetch(`${API_BASE}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin }),
-    });
-    const data = await res.json();
-    if (data.success && data.token) {
-      authToken = data.token;
-      localStorage.setItem("focus_parent_token", authToken);
-      loginModal.style.display = "none";
-      appContainer.style.display = "flex";
-      pinInput.value = "";
-      initDashboard();
-    } else {
-      loginError.textContent = data.error || "Incorrect Master PIN";
+  const isCloudHost = window.location.hostname.includes("github.io") || !!fbUrl;
+
+  if (isCloudHost) {
+    if (!fbUrl || !fbSecret) {
+      loginError.textContent = "Firebase credentials not linked on this phone! Click 'Firebase Cloud Setup' below.";
+      openCloudModal();
+      return;
     }
-  } catch (err) {
-    loginError.textContent = "Server unreachable. Ensure daemon is running.";
+
+    try {
+      loginError.style.color = "var(--primary)";
+      loginError.textContent = "Connecting to Firebase RTDB...";
+
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      const enteredHash = await sha256Hex(pin);
+
+      let res = await fetch(`${cleanUrl}/focus/security.json?auth=${fbSecret}`);
+      let secData = res.ok ? await res.json() : null;
+      let validHash = secData?.pin_hash;
+
+      if (!validHash) {
+        const rulesRes = await fetch(`${cleanUrl}/focus/rules.json?auth=${fbSecret}`);
+        if (rulesRes.ok) {
+          const rulesData = await rulesRes.json();
+          validHash = rulesData?.pin_hash;
+        }
+      }
+
+      // If PC daemon hasn't initialized pin_hash yet, initialize it with parent's pin
+      if (!validHash) {
+        await fetch(`${cleanUrl}/focus/security.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin_hash: enteredHash }),
+        });
+        validHash = enteredHash;
+      }
+
+      if (enteredHash === validHash) {
+        authToken = "cloud_" + Date.now();
+        localStorage.setItem("focus_parent_token", authToken);
+        loginModal.style.display = "none";
+        appContainer.style.display = "flex";
+        pinInput.value = "";
+        loginError.textContent = "";
+        loginError.style.color = "var(--danger)";
+        initDashboard();
+      } else {
+        loginError.style.color = "var(--danger)";
+        loginError.textContent = "Incorrect Master PIN. Access denied.";
+      }
+    } catch (err) {
+      loginError.style.color = "var(--danger)";
+      loginError.textContent = "Firebase connection failed. Check your URL & Secret.";
+    }
+  } else {
+    // Local daemon API login
+    try {
+      const res = await fetch(`${API_BASE}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        authToken = data.token;
+        localStorage.setItem("focus_parent_token", authToken);
+        loginModal.style.display = "none";
+        appContainer.style.display = "flex";
+        pinInput.value = "";
+        initDashboard();
+      } else {
+        loginError.textContent = data.error || "Incorrect Master PIN";
+      }
+    } catch (err) {
+      loginError.textContent = "Server unreachable. Click 'Firebase Cloud Setup' below to link cloud.";
+    }
   }
 });
 
@@ -267,12 +354,28 @@ refreshScreenBtn.addEventListener("click", async () => {
   refreshScreenBtn.disabled = true;
   refreshScreenBtn.textContent = "Capturing...";
   try {
-    const res = await apiFetch("/api/screenshot");
-    if (res.ok) {
-      const blob = await res.blob();
-      const imgUrl = URL.createObjectURL(blob);
-      screenshotImg.src = imgUrl;
-      screenshotContainer.style.display = "block";
+    if (fbUrl) {
+      await sendAction("screenshot");
+      await new Promise((r) => setTimeout(r, 2000));
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      const res = await fetch(`${cleanUrl}/focus/screenshot.json?auth=${fbSecret}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.image) {
+          screenshotImg.src = data.image;
+          screenshotContainer.style.display = "block";
+        } else {
+          alert("Screenshot was not yet received. Try clicking again in a few seconds.");
+        }
+      }
+    } else {
+      const res = await apiFetch("/api/screenshot");
+      if (res.ok) {
+        const blob = await res.blob();
+        const imgUrl = URL.createObjectURL(blob);
+        screenshotImg.src = imgUrl;
+        screenshotContainer.style.display = "block";
+      }
     }
   } catch (err) {
     alert("Failed to capture screenshot: " + err.message);
@@ -295,10 +398,22 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 async function fetchRules() {
   try {
-    const res = await apiFetch("/api/rules");
-    if (res.ok) {
-      currentRules = await res.json();
-      renderTagClouds();
+    if (fbUrl) {
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      const res = await fetch(`${cleanUrl}/focus/rules.json?auth=${fbSecret}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === "object") {
+          currentRules = data;
+          renderTagClouds();
+        }
+      }
+    } else {
+      const res = await apiFetch("/api/rules");
+      if (res.ok) {
+        currentRules = await res.json();
+        renderTagClouds();
+      }
     }
   } catch (err) { }
 }
@@ -346,6 +461,12 @@ async function removeItem(type, value) {
 
 async function syncRulesToServer() {
   if (fbUrl) {
+    const cleanUrl = fbUrl.replace(/\/$/, "");
+    await fetch(`${cleanUrl}/focus/rules.json?auth=${fbSecret}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(currentRules),
+    });
     await sendAction("sync_rules", { rules: currentRules });
   } else {
     await apiFetch("/api/rules", {
@@ -471,6 +592,83 @@ document.querySelector('[data-tab="installed"]')?.addEventListener("click", () =
   }
 });
 
+// --- 10. Remote App Maintenance & GitHub Sync (1,000 km OTA) ---
+const btnRemoteUpdate = document.getElementById("btn-remote-update");
+const btnRemoteUpdateText = document.getElementById("btn-remote-update-text");
+const updateStatusBadge = document.getElementById("update-status-badge");
+const updateOutputBox = document.getElementById("update-output-box");
+
+btnRemoteUpdate?.addEventListener("click", async () => {
+  if (!confirm("Update FOCUS on your brother's PC from GitHub? The PC app will download new code and reload automatically.")) return;
+
+  btnRemoteUpdate.disabled = true;
+  btnRemoteUpdateText.textContent = "Updating PC from GitHub...";
+  updateStatusBadge.style.display = "inline-block";
+  updateStatusBadge.className = "badge";
+  updateStatusBadge.textContent = "In Progress...";
+  updateOutputBox.style.display = "none";
+  updateOutputBox.textContent = "";
+
+  try {
+    await sendAction("update_app");
+
+    // Poll for update result (up to 20 seconds)
+    let attempts = 0;
+    const maxAttempts = 10;
+    const checkUpdate = async () => {
+      attempts++;
+      let status = null;
+
+      if (fbUrl) {
+        const cleanUrl = fbUrl.replace(/\/$/, "");
+        const res = await fetch(`${cleanUrl}/focus/update_status.json?auth=${fbSecret}`);
+        if (res.ok) {
+          status = await res.json();
+        }
+      }
+
+      if (status && (Date.now() / 1000 - status.timestamp < 30 || attempts >= maxAttempts)) {
+        if (status.success) {
+          if (status.has_updates) {
+            updateStatusBadge.className = "badge badge-primary";
+            updateStatusBadge.textContent = "✅ Updated & Reloaded";
+          } else {
+            updateStatusBadge.className = "badge";
+            updateStatusBadge.textContent = "ℹ️ Already Up to Date";
+          }
+        } else {
+          updateStatusBadge.className = "badge badge-danger";
+          updateStatusBadge.textContent = "❌ Update Failed";
+        }
+
+        if (status.output) {
+          updateOutputBox.style.display = "block";
+          updateOutputBox.textContent = status.output;
+        }
+
+        btnRemoteUpdate.disabled = false;
+        btnRemoteUpdateText.textContent = "Sync & Update App from GitHub";
+        return;
+      }
+
+      if (attempts < maxAttempts) {
+        setTimeout(checkUpdate, 2000);
+      } else {
+        btnRemoteUpdate.disabled = false;
+        btnRemoteUpdateText.textContent = "Sync & Update App from GitHub";
+        updateStatusBadge.textContent = "Request Sent";
+      }
+    };
+
+    setTimeout(checkUpdate, 2500);
+  } catch (err) {
+    alert("Failed to send update request: " + err.message);
+    btnRemoteUpdate.disabled = false;
+    btnRemoteUpdateText.textContent = "Sync & Update App from GitHub";
+    updateStatusBadge.style.display = "none";
+  }
+});
+
 // Auto login if token exists
 if (authToken) {
   loginModal.style.display = "none";
@@ -480,3 +678,6 @@ if (authToken) {
   loginModal.style.display = "flex";
   appContainer.style.display = "none";
 }
+
+// Initialize Cloud mode indicators
+updateCloudModeIndicator();

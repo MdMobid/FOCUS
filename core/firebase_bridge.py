@@ -138,6 +138,21 @@ class FirebaseCloudBridge:
         # Execute action on local machine
         success = self.coordinator.handle_action(action, cmd_obj)
 
+        # Handle screenshot capture for remote parent
+        if action == "screenshot":
+            try:
+                from web_server import capture_screen_bmp_bytes
+                bmp = capture_screen_bmp_bytes()
+                if bmp:
+                    b64 = base64.b64encode(bmp).decode("ascii")
+                    self.push_data("/focus/screenshot.json", {
+                        "image": f"data:image/bmp;base64,{b64}",
+                        "timestamp": time.time()
+                    })
+                    success = True
+            except Exception as e:
+                print(f"[FOCUS Cloud] Screenshot capture failed: {e}", file=sys.stderr)
+
         # Handle rules sync if rules were updated remotely
         if action == "sync_rules" and "rules" in cmd_obj:
             self.coordinator.update_rules(cmd_obj["rules"])
@@ -153,6 +168,11 @@ class FirebaseCloudBridge:
     def _sync_initial_rules(self):
         """Syncs master rules between Firebase RTDB and local PC."""
         try:
+            # Sync parent PIN hash securely to Firebase RTDB for web dashboard auth
+            pin_hash = self.coordinator.config.get("pin_hash", "")
+            if pin_hash:
+                self.push_data("/focus/security.json", {"pin_hash": pin_hash})
+
             url = self._build_url("/focus/rules.json")
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req, timeout=10) as resp:

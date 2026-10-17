@@ -93,7 +93,61 @@ class MainCoordinator:
             self.config.set("max_tabs", max_tabs)
             return True
 
+        elif action == "screenshot":
+            return True
+
+        elif action == "update_app":
+            res = self.handle_remote_update()
+            return res.get("success", False)
+
         return False
+
+    def handle_remote_update(self) -> Dict[str, Any]:
+        """Pulls latest commits from GitHub origin main and resurrects via watchdog."""
+        print("[FOCUS Coordinator] Remote app update initiated from Parent Web Dashboard...")
+        project_dir = os.path.dirname(SCRIPT_DIR)
+        try:
+            res = subprocess.run(
+                ["git", "-c", "safe.directory=*", "pull", "origin", "main"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            output = (res.stdout + "\n" + res.stderr).strip()
+            is_success = (res.returncode == 0)
+            has_updates = "Already up to date" not in output and is_success
+
+            status_data = {
+                "success": is_success,
+                "has_updates": has_updates,
+                "output": output,
+                "timestamp": time.time()
+            }
+
+            print(f"[FOCUS Coordinator] Git pull completed (success={is_success}):\n{output}")
+
+            if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                self.cloud_bridge.push_data("/focus/update_status.json", status_data)
+
+            if has_updates:
+                print("[FOCUS Coordinator] New updates downloaded! Relaunching daemon in 2 seconds...")
+                def delayed_restart():
+                    time.sleep(2)
+                    os._exit(0)  # Sentinel watchdog will automatically resurrect with the new code
+                threading.Thread(target=delayed_restart, daemon=True).start()
+
+            return status_data
+        except Exception as exc:
+            err_data = {
+                "success": False,
+                "has_updates": False,
+                "output": f"Update failed: {str(exc)}",
+                "timestamp": time.time()
+            }
+            if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                self.cloud_bridge.push_data("/focus/update_status.json", err_data)
+            return err_data
 
     def update_rules(self, new_rules: Dict[str, Any]):
         """Updates whitelists from web dashboard."""
