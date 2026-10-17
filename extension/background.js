@@ -47,13 +47,17 @@ async function syncRulesWithDaemon() {
   }
 }
 
-// Sync rules every 15 seconds
-setInterval(syncRulesWithDaemon, 15000);
+// Sync rules every 3 seconds for instant response
+setInterval(syncRulesWithDaemon, 3000);
 
 // --- 1. Browser Tab Limiter ---
 chrome.tabs.onCreated.addListener((newTab) => {
   chrome.storage.local.get(["focus_rules"], (res) => {
     const rules = res.focus_rules || DEFAULT_RULES;
+
+    // When Focus Mode is OFF: all tab limits are removed (open any number of tabs)
+    if (!rules.focus_mode) return;
+
     const maxTabs = rules.max_tabs || 5;
 
     // Count all active tabs across all windows
@@ -103,6 +107,10 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
 
   chrome.storage.local.get(["focus_rules"], (res) => {
     const rules = res.focus_rules || DEFAULT_RULES;
+
+    // When Focus Mode is OFF: all websites are 100% visible and unblocked
+    if (!rules.focus_mode) return;
+
     const allowedSites = rules.allowed_sites || [];
 
     // Check if hostname matches or ends with an allowed domain

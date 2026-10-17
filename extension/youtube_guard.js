@@ -23,15 +23,28 @@ const DISTRACTION_FREE_CSS = `
   }
 `;
 
-// Inject Distraction-Free CSS immediately
-function injectDistractionFreeStyles() {
-  if (document.getElementById("focus-distraction-style")) return;
-  const styleEl = document.createElement("style");
-  styleEl.id = "focus-distraction-style";
-  styleEl.textContent = DISTRACTION_FREE_CSS;
-  (document.head || document.documentElement).appendChild(styleEl);
+// Distraction-Free CSS management based on focus_mode
+function updateDistractionFreeStyles() {
+  chrome.storage.local.get(["focus_rules"], (res) => {
+    const rules = res.focus_rules || {};
+    const existing = document.getElementById("focus-distraction-style");
+    if (rules.focus_mode) {
+      if (!existing) {
+        const styleEl = document.createElement("style");
+        styleEl.id = "focus-distraction-style";
+        styleEl.textContent = DISTRACTION_FREE_CSS;
+        (document.head || document.documentElement).appendChild(styleEl);
+      }
+    } else {
+      // When Focus Mode is OFF: full YouTube experience (all recommendations, shorts & comments visible)
+      if (existing) {
+        existing.remove();
+      }
+      removeBlockOverlay();
+    }
+  });
 }
-injectDistractionFreeStyles();
+updateDistractionFreeStyles();
 
 // Overlay element management
 function showBlockOverlay(channelName) {
@@ -111,8 +124,8 @@ function inspectCurrentChannel() {
   // If on watch page: check owner element in DOM
   if (path === "/watch") {
     const ownerEl = document.querySelector("#owner ytd-channel-name a") ||
-                    document.querySelector("ytd-video-owner-renderer #channel-name a") ||
-                    document.querySelector("#meta #channel-name a");
+      document.querySelector("ytd-video-owner-renderer #channel-name a") ||
+      document.querySelector("#meta #channel-name a");
 
     if (ownerEl) {
       const href = ownerEl.getAttribute("href") || "";
@@ -133,6 +146,13 @@ function checkChannelAllowed(channelIdentifier) {
 
   chrome.storage.local.get(["focus_rules"], (res) => {
     const rules = res.focus_rules || {};
+
+    // When Focus Mode is OFF: all YouTube channels are allowed freely
+    if (!rules.focus_mode) {
+      removeBlockOverlay();
+      return;
+    }
+
     const allowedChannels = (rules.allowed_channels || []).map(c => c.trim().toLowerCase());
 
     const cleanTarget = channelIdentifier.toLowerCase().replace(/^\/?/, "");
@@ -151,9 +171,12 @@ function checkChannelAllowed(channelIdentifier) {
 
 // Observe dynamic YouTube navigation events
 window.addEventListener("yt-navigate-finish", () => {
-  injectDistractionFreeStyles();
+  updateDistractionFreeStyles();
   setTimeout(inspectCurrentChannel, 500);
 });
 
-// Periodic check for dynamic DOM load
-setInterval(inspectCurrentChannel, 1500);
+// Periodic check for dynamic DOM load and Focus Mode toggles
+setInterval(() => {
+  updateDistractionFreeStyles();
+  inspectCurrentChannel();
+}, 2000);

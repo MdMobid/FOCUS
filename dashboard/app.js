@@ -262,7 +262,7 @@ async function pollStatus() {
       }
       focusStatusBadge.className = "badge badge-primary";
     } else {
-      focusStatusBadge.textContent = "Standby";
+      focusStatusBadge.textContent = "Standby (All Limits OFF)";
       focusStatusBadge.className = "badge";
     }
 
