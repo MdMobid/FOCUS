@@ -1,0 +1,27 @@
+{
+  "pin_hash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+  "focus_mode": false,
+  "focus_expires_at": 0,
+  "keyboard_locked": false,
+  "max_tabs": 5,
+  "allowed_apps": [
+    "chrome.exe",
+    "msedge.exe",
+    "notepad.exe",
+    "calc.exe",
+    "code.exe",
+    "python.exe"
+  ],
+  "allowed_sites": [
+    "wikipedia.org",
+    "youtube.com",
+    "github.com",
+    "google.com"
+  ],
+  "allowed_channels": [
+    "@khanacademy"
+  ],
+  "server_port": 8443,
+  "firebase_url": "",
+  "firebase_secret": ""
+}

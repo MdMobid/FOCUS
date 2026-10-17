@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FOCUS | Parent Control Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <!-- PIN Login Screen -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="brand-badge">🛡️</div>
+      <h2>FOCUS Control</h2>
+      <p class="subtitle">Enter your Parent Master PIN to access controls</p>
+
+      <form id="login-form">
+        <div class="pin-input-group">
+          <input type="password" id="pin-input" maxlength="8" placeholder="••••" autocomplete="off" autofocus required>
+        </div>
+        <div id="login-error" class="error-msg"></div>
+        <button type="submit" class="btn btn-primary btn-block">Unlock Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Dashboard App -->
+  <div id="app-container" class="app-layout" style="display: none;">
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">🛡️</div>
+        <div>
+          <h1>FOCUS</h1>
+          <span class="role-tag">Parent Command Center</span>
+        </div>
+      </div>
+      <div class="status-container">
+        <div class="status-pill online" id="status-pill">
+          <span class="dot"></span>
+          <span id="status-text">Connected</span>
+        </div>
+        <button id="cloud-cfg-btn" class="btn-icon" title="Cloud Setup (1,000 km)">☁️</button>
+        <button id="logout-btn" class="btn-icon" title="Logout">🔒</button>
+      </div>
+    </header>
+
+    <!-- Cloud Settings Modal -->
+    <div id="cloud-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="brand-badge">☁️</div>
+        <h2>Firebase Cloud Sync</h2>
+        <p class="subtitle">Enables control across 1,000 km without open ports or tunnels</p>
+
+        <div class="control-row" style="margin-bottom: 16px;">
+          <input type="text" id="cfg-fb-url" placeholder="https://your-project.firebaseio.com"
+            style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-card); background: rgba(10, 13, 20, 0.7); color: #fff;">
+        </div>
+        <div class="control-row" style="margin-bottom: 20px;">
+          <input type="password" id="cfg-fb-secret" placeholder="Database Secret / Auth Key"
+            style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-card); background: rgba(10, 13, 20, 0.7); color: #fff;">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="save-cloud-btn" class="btn btn-primary btn-block">Save Cloud Config</button>
+          <button id="close-cloud-btn" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="content-grid">
+      <!-- 1. System Power Actions -->
+      <section class="card power-card">
+        <div class="card-header">
+          <h3>⚡ Quick Power & Session</h3>
+          <span class="badge">Win32 Native</span>
+        </div>
+        <div class="action-grid">
+          <button class="btn btn-action" data-action="lock" id="btn-lock">
+            <span class="btn-icon-large">🔒</span>
+            <span class="btn-label">Lock PC</span>
+          </button>
+          <button class="btn btn-action" data-action="signout" id="btn-signout">
+            <span class="btn-icon-large">🚪</span>
+            <span class="btn-label">Sign Out</span>
+          </button>
+          <button class="btn btn-action" data-action="restart" id="btn-restart">
+            <span class="btn-icon-large">🔄</span>
+            <span class="btn-label">Restart</span>
+          </button>
+          <button class="btn btn-action btn-danger" data-action="shutdown" id="btn-shutdown">
+            <span class="btn-icon-large">🛑</span>
+            <span class="btn-label">Shutdown</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 2. Focus Mode & Keyboard Lock -->
+      <section class="card">
+        <div class="card-header">
+          <h3>🎯 Focus Mode & Input</h3>
+          <span class="badge badge-primary" id="focus-status-badge">Standby</span>
+        </div>
+
+        <!-- Focus Mode Toggle -->
+        <div class="control-row">
+          <div class="control-info">
+            <h4>Strict Focus Mode</h4>
+            <p>Closes all apps except whitelisted study tools</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-focus">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Duration Selector -->
+        <div class="duration-selector" id="duration-selector-wrap">
+          <label>Focus Duration:</label>
+          <div class="duration-chips">
+            <button class="chip active" data-mins="0">Unlimited</button>
+            <button class="chip" data-mins="15">15m</button>
+            <button class="chip" data-mins="30">30m</button>
+            <button class="chip" data-mins="60">1h</button>
+            <button class="chip" data-mins="120">2h</button>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Keyboard Lock Toggle -->
+        <div class="control-row">
+          <div class="control-info">
+            <h4>Hardware Keyboard Lock</h4>
+            <p>Blocks typing & hotkeys (Bypass: Ctrl+Alt+Shift+P)</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-keylock">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 3. Browser Tab Limiter -->
+      <section class="card">
+        <div class="card-header">
+          <h3>📑 Browser Tab Limiter</h3>
+          <span class="badge badge-accent" id="tab-count-badge">5 Tabs Max</span>
+        </div>
+        <p class="section-desc">Enforced in both Chrome and Edge. Any newly opened tab exceeding this limit is instantly
+          closed.</p>
+
+        <div class="tab-slider-wrap">
+          <div class="slider-labels">
+            <span>1 Tab (Ultra Strict)</span>
+            <span id="tab-slider-val">5 Tabs</span>
+            <span>15 Tabs</span>
+          </div>
+          <input type="range" id="tab-slider" min="1" max="15" value="5" step="1">
+        </div>
+      </section>
+
+      <!-- 4. Live PC Monitor & Screen -->
+      <section class="card">
+        <div class="card-header">
+          <h3>📸 Live PC Activity</h3>
+          <button id="refresh-screen-btn" class="btn btn-sm btn-secondary">📷 Take Live Screenshot</button>
+        </div>
+
+        <div class="monitor-info-box">
+          <div class="info-row">
+            <span class="info-label">Active App:</span>
+            <span class="info-value highlight" id="active-app-name">Checking...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Window Title:</span>
+            <span class="info-value" id="active-window-title">Checking...</span>
+          </div>
+        </div>
+
+        <!-- Screenshot Preview Container -->
+        <div id="screenshot-container" class="screenshot-wrap" style="display: none;">
+          <img id="screenshot-img" alt="Live PC Screenshot">
+        </div>
+      </section>
+
+      <!-- 5. Whitelist Management -->
+      <section class="card full-width">
+        <div class="card-header">
+          <h3>📋 Whitelist Manager</h3>
+          <span class="badge">Real-time Sync</span>
+        </div>
+
+        <div class="whitelist-tabs">
+          <button class="tab-btn active" data-tab="apps">Allowed Apps</button>
+          <button class="tab-btn" data-tab="sites">Allowed Websites</button>
+          <button class="tab-btn" data-tab="channels">Allowed YouTube</button>
+          <button class="tab-btn" data-tab="installed">📱 Installed Apps on PC</button>
+        </div>
+
+        <!-- Apps Panel -->
+        <div class="tab-panel active" id="panel-apps">
+          <div class="tag-input-row">
+            <input type="text" id="input-app" placeholder="e.g. code.exe, word.exe">
+            <button class="btn btn-primary" id="btn-add-app">Add App</button>
+          </div>
+          <div class="tag-cloud" id="tag-cloud-apps"></div>
+        </div>
+
+        <!-- Websites Panel -->
+        <div class="tab-panel" id="panel-sites">
+          <div class="tag-input-row">
+            <input type="text" id="input-site" placeholder="e.g. khanacademy.org, wikipedia.org">
+            <button class="btn btn-primary" id="btn-add-site">Add Website</button>
+          </div>
+          <div class="tag-cloud" id="tag-cloud-sites"></div>
+        </div>
+
+        <!-- YouTube Channels Panel -->
+        <div class="tab-panel" id="panel-channels">
+          <div class="tag-input-row">
+            <input type="text" id="input-channel" placeholder="e.g. @freecodecamp, @khanacademy">
+            <button class="btn btn-primary" id="btn-add-channel">Add Channel</button>
+          </div>
+          <div class="tag-cloud" id="tag-cloud-channels"></div>
+        </div>
+
+        <!-- Installed Apps Panel -->
+        <div class="tab-panel" id="panel-installed">
+          <div class="tag-input-row">
+            <input type="text" id="search-installed"
+              placeholder="🔍 Search installed apps (e.g. Chrome, Blender, VS Code)...">
+            <button class="btn btn-secondary" id="btn-refresh-installed">Refresh List</button>
+          </div>
+          <div id="installed-apps-list" class="installed-apps-table">
+            <div style="color: var(--text-dim); padding: 12px;">Loading installed applications from PC...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,16 @@
+# Virtual environment & AI configs
+.venv/
+.agents/
+.planning/
+AGENTS.md
+README.md
+
+# Sensitive local configurations (contain Firebase Secret & Master PIN)
+config/rules.json
+config/focus.db
+config/*.tmp
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

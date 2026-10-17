@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "FOCUS Web & YouTube Guard",
+  "version": "1.0.0",
+  "description": "Parental website whitelist, tab limiter, and YouTube channel controller for Chrome and Edge.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["youtube_guard.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
