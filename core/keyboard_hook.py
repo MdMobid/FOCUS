@@ -94,18 +94,26 @@ class KeyboardGuard:
         user32 = ctypes.windll.user32
         kernel32 = ctypes.windll.kernel32
 
+        # Define 64-bit Windows function prototypes to prevent pointer truncation
+        user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
+        user32.SetWindowsHookExW.restype = wintypes.HHOOK
+        kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+        kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+
         # Keep reference to callback to prevent garbage collection
         self._c_hook_proc = HOOKPROC(self._hook_callback)
 
+        h_mod = kernel32.GetModuleHandleW(None)
         self._hook_id = user32.SetWindowsHookExW(
             WH_KEYBOARD_LL,
             self._c_hook_proc,
-            kernel32.GetModuleHandleW(None),
+            h_mod,
             0
         )
 
         if not self._hook_id:
-            print("[FOCUS Keyboard] Failed to install low-level keyboard hook.", file=sys.stderr)
+            err = kernel32.GetLastError()
+            print(f"[FOCUS Keyboard] Failed to install low-level keyboard hook (Win32 Err: {err}).", file=sys.stderr)
             return
 
         print("[FOCUS Keyboard] Keyboard hook successfully installed.")

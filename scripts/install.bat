@@ -31,6 +31,11 @@ for /f "delims=" %%I in ('where python') do set PYTHON_EXE=%%I & goto :found_pyt
 :found_python
 echo [OK] Using Python: %PYTHON_EXE%
 
+:: Prefer pythonw.exe (Windowless Python) so NO CMD window is shown to brother
+set RUNNER_EXE=%PYTHON_EXE:python.exe=pythonw.exe%
+if not exist "%RUNNER_EXE%" set RUNNER_EXE=%PYTHON_EXE%
+echo [OK] Background Runner: %RUNNER_EXE%
+
 :: 3. Resolve Project Paths
 set PROJECT_DIR=%~dp0..
 pushd "%PROJECT_DIR%"
@@ -46,12 +51,12 @@ echo [OK] Target Daemon: %MAIN_SCRIPT%
 :: 4. Register Windows Task Scheduler (Auto-Start on Boot/Logon with Highest Privileges)
 echo.
 echo [*] Configuring Windows Auto-Start Task...
-schtasks /create /tn "FOCUSParentGuard" /tr "\"%PYTHON_EXE%\" \"%MAIN_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
+schtasks /create /tn "FOCUSParentGuard" /tr "\"%RUNNER_EXE%\" \"%MAIN_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
 if %errorLevel% equ 0 (
-    echo [OK] Task Scheduler auto-start registered with HIGHEST privileges!
+    echo [OK] Task Scheduler auto-start registered with HIGHEST privileges (Silent Background)!
 ) else (
     echo [!] Task scheduler registration warning. Falling back to Registry Run Key.
-    reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /t REG_SZ /d "\"%PYTHON_EXE%\" \"%MAIN_SCRIPT%\"" /f >nul 2>&1
+    reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /t REG_SZ /d "\"%RUNNER_EXE%\" \"%MAIN_SCRIPT%\"" /f >nul 2>&1
 )
 
 :: 5. Register Chromium Enterprise Policies (Chrome & Edge)
@@ -76,10 +81,10 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
 )
 :ip_found
 
-:: 7. Start FOCUS in background
+:: 7. Start FOCUS silently in background (No CMD Window)
 echo.
-echo [*] Launching FOCUS Daemon in background...
-start "" "%PYTHON_EXE%" "%MAIN_SCRIPT%"
+echo [*] Launching FOCUS Daemon silently in background...
+start "" "%RUNNER_EXE%" "%MAIN_SCRIPT%"
 
 echo.
 echo ============================================================
@@ -93,7 +98,7 @@ if defined LOCAL_IP (
 echo   Phone (Home Wi-Fi): http://!LOCAL_IP!:8443
 )
 echo.
-echo   Default Parent PIN: 1234
+echo   Parent Security: PIN-Protected (Hashed SHA-256)
 echo   Emergency Unlock Hotkey: Ctrl + Alt + Shift + P
 echo.
 echo   Bookmark the Phone URL on your smartphone home screen!

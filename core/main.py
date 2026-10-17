@@ -148,7 +148,7 @@ class MainCoordinator:
         self.start_watchdog()
 
         print("[FOCUS Coordinator] All systems online.")
-        print(f"[FOCUS Coordinator] Default Parent PIN: 1234")
+        print("[FOCUS Coordinator] Parent PIN security active.")
         print("[FOCUS Coordinator] Keep this process running or installed as Windows Service.")
 
         try:

@@ -24,6 +24,27 @@ def hash_pin(pin: str) -> str:
 class ConfigManager:
     def __init__(self, database=db):
         self.db = database
+        self._sync_from_rules_json_if_present()
+
+    def _sync_from_rules_json_if_present(self):
+        """Automatically imports settings from rules.json into SQLite if present."""
+        rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
+        if os.path.exists(rules_path):
+            try:
+                import json
+                with open(rules_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    fb_url = data.get("firebase_url", "").strip()
+                    fb_secret = data.get("firebase_secret", "").strip()
+                    if fb_url:
+                        self.db.set_setting("firebase_url", fb_url)
+                    if fb_secret:
+                        self.db.set_setting("firebase_secret", fb_secret)
+                    if "pin_hash" in data and data["pin_hash"]:
+                        self.db.set_setting("pin_hash", data["pin_hash"])
+            except Exception:
+                pass
 
     def get(self, key: str, default: Any = None) -> Any:
         if key == "allowed_apps":
@@ -48,7 +69,22 @@ class ConfigManager:
             return default
 
         val = self.db.get_setting(key)
-        return val if val is not None else default
+        if val is not None and val != "":
+            return val
+
+        # Fallback to rules.json if present
+        rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
+        if os.path.exists(rules_path):
+            try:
+                import json
+                with open(rules_path, "r", encoding="utf-8") as f:
+                    file_data = json.load(f)
+                    if key in file_data and file_data[key]:
+                        return file_data[key]
+            except Exception:
+                pass
+
+        return default
 
     def set(self, key: str, value: Any) -> None:
         if key == "allowed_apps" and isinstance(value, list):
