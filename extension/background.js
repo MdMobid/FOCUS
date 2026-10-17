@@ -51,18 +51,16 @@ async function syncRulesWithDaemon() {
 setInterval(syncRulesWithDaemon, 15000);
 
 // --- 1. Browser Tab Limiter ---
-chrome.tabs.onCreated.addListener(async (newTab) => {
-  chrome.storage.local.get(["focus_rules"], async (res) => {
+chrome.tabs.onCreated.addListener((newTab) => {
+  chrome.storage.local.get(["focus_rules"], (res) => {
     const rules = res.focus_rules || DEFAULT_RULES;
     const maxTabs = rules.max_tabs || 5;
 
     // Count all active tabs across all windows
     chrome.tabs.query({}, (tabs) => {
-      if (tabs.length > maxTabs) {
+      if (tabs && tabs.length > maxTabs && newTab && newTab.id) {
         console.warn(`[FOCUS Extension] Max tab limit (${maxTabs}) exceeded! Closing tab: ${newTab.id}`);
-        if (newTab.id) {
-          chrome.tabs.remove(newTab.id);
-        }
+        chrome.tabs.remove(newTab.id).catch(() => { });
       }
     });
   });
@@ -71,17 +69,22 @@ chrome.tabs.onCreated.addListener(async (newTab) => {
 // --- 2. Website Whitelist Filter ---
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   // Only inspect top-level frame navigation
-  if (details.frameId !== 0) return;
+  if (details.frameId !== 0 || details.tabId < 0) return;
 
   const urlStr = details.url;
   if (!urlStr) return;
 
-  // Ignore internal browser schemes
+  // Ignore internal browser schemes, extension pages, and the blocked page itself
   if (
     urlStr.startsWith("chrome://") ||
     urlStr.startsWith("chrome-extension://") ||
+    urlStr.startsWith("extension://") ||
     urlStr.startsWith("edge://") ||
-    urlStr.startsWith("about:")
+    urlStr.startsWith("edge-extension://") ||
+    urlStr.startsWith("about:") ||
+    urlStr.startsWith("blob:") ||
+    urlStr.startsWith("data:") ||
+    urlStr.includes("blocked.html")
   ) {
     return;
   }
@@ -90,6 +93,11 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   try {
     hostname = new URL(urlStr).hostname.toLowerCase();
   } catch (e) {
+    return;
+  }
+
+  // Allow local parent dashboard access
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
     return;
   }
 
@@ -106,7 +114,7 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
     if (!isAllowed) {
       console.warn(`[FOCUS Extension] Blocked non-whitelisted site: ${hostname}`);
       const blockedPageUrl = chrome.runtime.getURL("blocked.html") + "?url=" + encodeURIComponent(urlStr);
-      chrome.tabs.update(details.tabId, { url: blockedPageUrl });
+      chrome.tabs.update(details.tabId, { url: blockedPageUrl }).catch(() => { });
     }
   });
 });

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
+
     body {
       background: radial-gradient(circle at top, #1a1d2d, #0d0e15);
       color: #e2e8f0;
@@ -20,6 +22,7 @@
       justify-content: center;
       padding: 20px;
     }
+
     .card {
       background: rgba(26, 29, 45, 0.7);
       backdrop-filter: blur(16px);
@@ -31,6 +34,7 @@
       text-align: center;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
+
     .icon-badge {
       width: 80px;
       height: 80px;
@@ -43,6 +47,7 @@
       font-size: 38px;
       margin-bottom: 24px;
     }
+
     h1 {
       font-size: 26px;
       font-weight: 700;
@@ -50,12 +55,14 @@
       margin-bottom: 12px;
       letter-spacing: -0.5px;
     }
+
     p {
       color: #94a3b8;
       font-size: 15px;
       line-height: 1.6;
       margin-bottom: 24px;
     }
+
     .blocked-url-box {
       background: rgba(15, 23, 42, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.05);
@@ -67,6 +74,7 @@
       word-break: break-all;
       margin-bottom: 32px;
     }
+
     .btn {
       display: inline-block;
       background: linear-gradient(135deg, #6366f1, #4f46e5);
@@ -79,27 +87,27 @@
       box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
       transition: transform 0.2s, box-shadow 0.2s;
     }
+
     .btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 15px 25px -5px rgba(79, 70, 229, 0.6);
     }
   </style>
 </head>
+
 <body>
   <div class="card">
     <div class="icon-badge">🛡️</div>
     <h1>Website Restricted</h1>
-    <p>This website is not on your parent-approved study list. Focus Mode is currently keeping your workspace distraction-free.</p>
-    
+    <p>This website is not on your parent-approved study list. Focus Mode is currently keeping your workspace
+      distraction-free.</p>
+
     <div class="blocked-url-box" id="url-display">Loading blocked URL...</div>
 
     <a href="https://www.google.com" class="btn">Return to Allowed Search</a>
   </div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const targetUrl = params.get('url') || 'Unknown URL';
-    document.getElementById('url-display').textContent = targetUrl;
-  </script>
+  <script src="blocked.js"></script>
 </body>
+
 </html>
