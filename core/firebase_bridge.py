@@ -132,6 +132,10 @@ class FirebaseCloudBridge:
         action = cmd_obj.get("action")
         timestamp = float(cmd_obj.get("timestamp", 0))
 
+        # Convert JS millisecond timestamps (Date.now()) to seconds
+        if timestamp > 1e11:
+            timestamp /= 1000.0
+
         # Ignore stale or previously executed commands
         if not action or timestamp <= self._last_processed_timestamp:
             return
