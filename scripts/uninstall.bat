@@ -35,20 +35,22 @@ if %errorLevel% neq 0 (
 echo.
 echo [VERIFIED] Master PIN confirmed. Proceeding with clean removal...
 
-:: 3. Terminate running FOCUS processes
-echo [*] Stopping background services...
-taskkill /f /im python.exe /fi "WINDOWTITLE eq FOCUS*" >nul 2>&1
+:: 3. Terminate running FOCUS processes and Watchdog
+echo [*] Stopping background services and watchdog...
+taskkill /f /im pythonw.exe >nul 2>&1
+taskkill /f /im python.exe >nul 2>&1
 
-:: 4. Remove Task Scheduler task
+:: 4. Remove Task Scheduler startup task & Registry Run key
 echo [*] Removing Task Scheduler startup task...
 schtasks /delete /tn "FOCUSParentGuard" /f >nul 2>&1
 reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /f >nul 2>&1
 
 :: 5. Restore Task Manager Policy
-echo [*] Restoring Windows policies...
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v "DisableTaskMgr" /t REG_DWORD /d 0 /f >nul 2>&1
+echo [*] Restoring Windows policies & Task Manager...
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v "DisableTaskMgr" /f >nul 2>&1
 
 :: 6. Clean Chromium Extension Policies
+echo [*] Removing Chromium enterprise policies...
 reg delete "HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist" /v "1" /f >nul 2>&1
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist" /v "1" /f >nul 2>&1
 
@@ -56,6 +58,15 @@ echo.
 echo ============================================================
 echo               UNINSTALLATION COMPLETE
 echo ============================================================
-echo FOCUS has been cleanly uninstalled and all policies restored.
+echo FOCUS background services stopped and all policies restored!
+echo.
+set /p PURGE_FILES="Do you also want to completely delete the FOCUS folder and all database files? [Y/N]: "
+if /i "!PURGE_FILES!"=="Y" (
+    echo [*] Completely deleting FOCUS directory...
+    start "" cmd /c "timeout /t 2 /nobreak >nul & rmdir /s /q \"%PROJECT_DIR%\""
+    echo [OK] Entire folder will be permanently removed in 2 seconds.
+) else (
+    echo [OK] Project files preserved on disk.
+)
 echo.
 pause
