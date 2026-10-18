@@ -35,19 +35,39 @@ class PROCESSENTRY32W(ctypes.Structure):
     ]
 
 
-# Core Windows OS processes that must never be terminated
+# Core Windows OS and essential development/system processes that must NEVER be terminated
 ESSENTIAL_SYSTEM_PROCESSES: Set[str] = {
     "system", "system idle process", "registry", "smss.exe", "csrss.exe",
     "wininit.exe", "services.exe", "lsass.exe", "svchost.exe", "fontdrvhost.exe",
     "dwm.exe", "explorer.exe", "sihost.exe", "taskhostw.exe", "ctfmon.exe",
     "conhost.exe", "audiodg.exe", "searchhost.exe", "shellexperiencehost.exe",
     "startmenuexperiencehost.exe", "textinputhost.exe", "runtimebroker.exe",
-    "securityhealthservice.exe", "smartscreen.exe", "spoolsv.exe"
+    "securityhealthservice.exe", "smartscreen.exe", "spoolsv.exe",
+    "antigravity ide.exe", "antigravity.exe", "antigravity-ide.exe",
+    "code.exe", "node.exe", "language_server_windows_x64.exe", "pyrefly.exe",
+    "workloadssessionhost.exe", "workloadssessionmanager.exe",
+    "cmd.exe", "powershell.exe", "powershell_ise.exe", "pwsh.exe",
+    "git.exe", "rg.exe", "bash.exe"
 }
 
 
-def get_running_processes() -> List[Tuple[int, str]]:
-    """Returns a list of (pid, exe_name) for all currently active processes."""
+def get_process_image_path(pid: int) -> str:
+    """Returns the full executable file path for a process PID."""
+    kernel32 = ctypes.windll.kernel32
+    h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not h_proc:
+        return ""
+    buff = ctypes.create_unicode_buffer(MAX_PATH * 2)
+    size = wintypes.DWORD(MAX_PATH * 2)
+    path = ""
+    if kernel32.QueryFullProcessImageNameW(h_proc, 0, buff, ctypes.byref(size)):
+        path = buff.value
+    kernel32.CloseHandle(h_proc)
+    return path
+
+
+def get_running_processes_with_parent() -> List[Tuple[int, int, str]]:
+    """Returns a list of (pid, parent_pid, exe_name) for all active processes."""
     processes = []
     kernel32 = ctypes.windll.kernel32
 
@@ -60,13 +80,16 @@ def get_running_processes() -> List[Tuple[int, str]]:
 
     success = kernel32.Process32FirstW(h_snap, ctypes.byref(entry))
     while success:
-        exe_name = entry.szExeFile
-        pid = entry.th32ProcessID
-        processes.append((pid, exe_name))
+        processes.append((entry.th32ProcessID, entry.th32ParentProcessID, entry.szExeFile))
         success = kernel32.Process32NextW(h_snap, ctypes.byref(entry))
 
     kernel32.CloseHandle(h_snap)
     return processes
+
+
+def get_running_processes() -> List[Tuple[int, str]]:
+    """Returns a list of (pid, exe_name) for all currently active processes."""
+    return [(pid, name) for pid, _, name in get_running_processes_with_parent()]
 
 
 def terminate_process_by_pid(pid: int) -> bool:
@@ -139,16 +162,37 @@ class ProcessGuardian:
                     allowed_set.add("pythonw.exe")
                     allowed_set.add("focus.exe")
 
-                    processes = get_running_processes()
-                    for pid, exe_name in processes:
-                        if pid == self.own_pid or pid <= 4:
+                    processes = get_running_processes_with_parent()
+
+                    # First pass: collect all Antigravity & immune PIDs so their children are also immune
+                    immune_pids: Set[int] = {self.own_pid, 0, 4}
+                    for pid, ppid, exe_name in processes:
+                        exe_lower = exe_name.lower()
+                        if "antigravity" in exe_lower or exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
+                            immune_pids.add(pid)
+
+                    # Second pass: check and terminate unauthorized apps
+                    for pid, ppid, exe_name in processes:
+                        if pid in immune_pids or pid <= 4 or pid == self.own_pid:
+                            continue
+
+                        # If parent process is immune (e.g. Antigravity IDE terminal/subtask), protect it
+                        if ppid in immune_pids:
+                            immune_pids.add(pid)
                             continue
 
                         exe_lower = exe_name.lower()
-                        if exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
+                        if "antigravity" in exe_lower or exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
+                            immune_pids.add(pid)
                             continue
 
-                        # Check if process is whitelisted
+                        # Check if process executable path belongs to Antigravity, .antigravity, or .gemini
+                        img_path = get_process_image_path(pid).lower()
+                        if "antigravity" in img_path or ".antigravity" in img_path or ".gemini" in img_path:
+                            immune_pids.add(pid)
+                            continue
+
+                        # Check if process is explicitly whitelisted
                         if exe_lower not in allowed_set:
                             # Terminate unauthorized application
                             if terminate_process_by_pid(pid):

@@ -10,7 +10,15 @@
     "notepad.exe",
     "calc.exe",
     "code.exe",
-    "python.exe"
+    "python.exe",
+    "pythonw.exe",
+    "focus.exe",
+    "antigravity ide.exe",
+    "antigravity.exe",
+    "antigravity-ide.exe",
+    "node.exe",
+    "language_server_windows_x64.exe",
+    "pyrefly.exe"
   ],
   "allowed_sites": [
     "wikipedia.org",

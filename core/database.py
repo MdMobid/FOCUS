@@ -101,7 +101,9 @@ class FocusDatabase:
         # Default Apps
         default_apps = [
             "chrome.exe", "msedge.exe", "notepad.exe", "calc.exe",
-            "code.exe", "python.exe", "pythonw.exe", "focus.exe"
+            "code.exe", "python.exe", "pythonw.exe", "focus.exe",
+            "antigravity ide.exe", "antigravity.exe", "antigravity-ide.exe",
+            "node.exe", "language_server_windows_x64.exe", "pyrefly.exe"
         ]
         for app in default_apps:
             self.add_allowed_app(app)

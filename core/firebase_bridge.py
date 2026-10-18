@@ -14,6 +14,10 @@ import time
 import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, Optional
+import os
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 
 class FirebaseCloudBridge:

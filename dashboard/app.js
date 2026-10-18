@@ -412,18 +412,28 @@ refreshScreenBtn.addEventListener("click", async () => {
   refreshScreenBtn.textContent = "Capturing...";
   try {
     if (fbUrl) {
+      const requestTimestamp = (Date.now() / 1000) - 2;
       await sendAction("screenshot");
-      await new Promise((r) => setTimeout(r, 2000));
       const cleanUrl = fbUrl.replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/focus/screenshot.json?auth=${fbSecret}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.image) {
-          screenshotImg.src = data.image;
-          screenshotContainer.style.display = "block";
-        } else {
-          alert("Screenshot was not yet received. Try clicking again in a few seconds.");
-        }
+
+      let captured = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        try {
+          const res = await fetch(`${cleanUrl}/focus/screenshot.json?auth=${fbSecret}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.image && (Number(data.timestamp || 0) >= requestTimestamp)) {
+              screenshotImg.src = data.image;
+              screenshotContainer.style.display = "block";
+              captured = true;
+              break;
+            }
+          }
+        } catch (pollErr) { }
+      }
+      if (!captured) {
+        alert("Screenshot request timed out. Ensure the PC app is running and connected.");
       }
     } else {
       const res = await apiFetch("/api/screenshot");
@@ -649,7 +659,7 @@ document.querySelector('[data-tab="installed"]')?.addEventListener("click", () =
   }
 });
 
-// --- 10. Remote App Maintenance & GitHub Sync (1,000 km OTA) ---
+// --- 10. Remote App Maintenance & GitHub Sync ---
 const btnRemoteUpdate = document.getElementById("btn-remote-update");
 const btnRemoteUpdateText = document.getElementById("btn-remote-update-text");
 const updateStatusBadge = document.getElementById("update-status-badge");

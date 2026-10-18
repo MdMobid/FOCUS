@@ -13,6 +13,8 @@ from typing import Any, Dict
 
 # Ensure local imports work regardless of working directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(PROJECT_DIR)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
