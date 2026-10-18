@@ -33,7 +33,7 @@ class FirebaseCloudBridge:
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
         self._telemetry_thread: Optional[threading.Thread] = None
-        self._last_processed_timestamp = 0
+        self._last_processed_timestamp = time.time()
 
     def _build_url(self, path: str) -> str:
         clean_path = path.lstrip("/")

@@ -52,6 +52,8 @@ class MainCoordinator:
         print("[FOCUS Coordinator] Emergency unlock hotkey pressed. Disabling keyboard lock.")
         self.config.set("keyboard_locked", False)
         self.keyboard_guard.set_locked(False)
+        if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+            self.cloud_bridge.push_data("/focus/status/keyboard_locked.json", False)
 
     def handle_action(self, action: str, payload: Dict[str, Any]) -> bool:
         """Executes system actions requested from the Parent Web Dashboard."""
@@ -190,9 +192,9 @@ class MainCoordinator:
         print("          FOCUS: Parental Control & Focus Manager          ")
         print("=" * 60)
 
-        # Sync initial state from config
-        is_key_locked = self.config.get("keyboard_locked", False)
-        self.keyboard_guard.set_locked(is_key_locked)
+        # Always initialize with keyboard unlocked for safety on startup
+        self.config.set("keyboard_locked", False)
+        self.keyboard_guard.set_locked(False)
 
         # Start subsystems
         self.keyboard_guard.start()
