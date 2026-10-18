@@ -146,6 +146,14 @@ class FirebaseCloudBridge:
         # Execute action on local machine
         success = self.coordinator.handle_action(action, cmd_obj)
 
+        # Immediately update status on Firebase so dashboard reflects it instantly
+        try:
+            status = self.coordinator.get_status()
+            status["last_seen"] = int(time.time())
+            self.push_data("/focus/status.json", status)
+        except Exception:
+            pass
+
         # Handle screenshot capture for remote parent
         if action == "screenshot":
             try:
