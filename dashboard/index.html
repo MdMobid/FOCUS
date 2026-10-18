@@ -4,12 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>FOCUS | Parent Control Dashboard</title>
+  <title>FOCUS | Parent Command Center</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -28,9 +27,8 @@
         <button type="submit" class="btn btn-primary btn-block">Unlock Dashboard</button>
       </form>
 
-      <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-card); text-align: center;">
-        <button type="button" id="login-cloud-btn" class="btn btn-secondary btn-sm"
-          style="width: 100%; font-size: 0.85rem; padding: 9px 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+        <button type="button" id="login-cloud-btn" class="btn btn-secondary btn-sm btn-block">
           <span>☁️</span> <span id="login-cloud-btn-text">Firebase Cloud Setup</span>
         </button>
       </div>
@@ -44,22 +42,23 @@
       <h2>Firebase Cloud Sync</h2>
       <p class="subtitle">Enables remote control across 1,000 km without open ports or tunnels</p>
 
-      <div class="control-row" style="margin-bottom: 16px;">
-        <label style="display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:5px;">Firebase Database
-          URL</label>
-        <input type="text" id="cfg-fb-url" placeholder="https://your-project.firebaseio.com"
-          style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-card); background: rgba(10, 13, 20, 0.7); color: #fff;">
+      <div style="margin-bottom: 16px; text-align: left;">
+        <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px;">Firebase Database URL</label>
+        <div class="tag-input-row">
+          <input type="text" id="cfg-fb-url" placeholder="https://your-project.firebaseio.com">
+        </div>
       </div>
-      <div class="control-row" style="margin-bottom: 20px;">
-        <label style="display:block; font-size:0.8rem; color:var(--text-dim); margin-bottom:5px;">Database Secret / Auth
-          Key</label>
-        <input type="password" id="cfg-fb-secret" placeholder="Paste your Firebase Secret here"
-          style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-card); background: rgba(10, 13, 20, 0.7); color: #fff;">
+
+      <div style="margin-bottom: 24px; text-align: left;">
+        <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px;">Database Secret / Auth Key</label>
+        <div class="tag-input-row">
+          <input type="password" id="cfg-fb-secret" placeholder="Paste your Firebase Secret here">
+        </div>
       </div>
 
       <div style="display: flex; gap: 10px;">
-        <button id="save-cloud-btn" class="btn btn-primary btn-block">Save Cloud Config</button>
-        <button id="close-cloud-btn" class="btn btn-secondary">Close</button>
+        <button id="save-cloud-btn" class="btn btn-primary" style="flex: 2;">Save Cloud Config</button>
+        <button id="close-cloud-btn" class="btn btn-secondary" style="flex: 1;">Close</button>
       </div>
     </div>
   </div>
@@ -80,32 +79,32 @@
           <span class="dot"></span>
           <span id="status-text">Connected</span>
         </div>
-        <button id="cloud-cfg-btn" class="btn-icon" title="Cloud Setup ">☁️</button>
+        <button id="cloud-cfg-btn" class="btn-icon" title="Cloud Setup">☁️</button>
         <button id="logout-btn" class="btn-icon" title="Logout">🔒</button>
       </div>
     </header>
 
     <main class="content-grid">
-      <!-- 1. System Power Actions -->
+      <!-- 1. System Power Actions (Tactile Molded Keys) -->
       <section class="card power-card">
         <div class="card-header">
-          <h3>⚡ Quick Power & Session</h3>
+          <h3>⚡ Quick Power &amp; Remote Actions</h3>
           <span class="badge">Win32 Native</span>
         </div>
         <div class="action-grid">
-          <button class="btn btn-action" data-action="lock" id="btn-lock">
+          <button class="btn-action" data-action="lock" id="btn-lock">
             <span class="btn-icon-large">🔒</span>
             <span class="btn-label">Lock PC</span>
           </button>
-          <button class="btn btn-action" data-action="signout" id="btn-signout">
+          <button class="btn-action" data-action="signout" id="btn-signout">
             <span class="btn-icon-large">🚪</span>
             <span class="btn-label">Sign Out</span>
           </button>
-          <button class="btn btn-action" data-action="restart" id="btn-restart">
+          <button class="btn-action" data-action="restart" id="btn-restart">
             <span class="btn-icon-large">🔄</span>
             <span class="btn-label">Restart</span>
           </button>
-          <button class="btn btn-action btn-danger" data-action="shutdown" id="btn-shutdown">
+          <button class="btn-action btn-danger" data-action="shutdown" id="btn-shutdown">
             <span class="btn-icon-large">🛑</span>
             <span class="btn-label">Shutdown</span>
           </button>
@@ -115,7 +114,7 @@
       <!-- 2. Focus Mode & Keyboard Lock -->
       <section class="card">
         <div class="card-header">
-          <h3>🎯 Focus Mode & Input</h3>
+          <h3>🎯 Focus Mode &amp; Hardware Lock</h3>
           <span class="badge badge-primary" id="focus-status-badge">Standby</span>
         </div>
 
@@ -123,8 +122,7 @@
         <div class="control-row">
           <div class="control-info">
             <h4>Strict Focus Mode</h4>
-            <p><strong>OFF:</strong> All limits removed (all apps, all sites, unlimited tabs).<br><strong>ON:</strong>
-              Only approved study tools & sites allowed.</p>
+            <p><strong>OFF:</strong> All limits removed (all apps &amp; sites open).<br><strong>ON:</strong> Only approved study apps and whitelisted sites allowed.</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-focus">
@@ -134,7 +132,7 @@
 
         <!-- Duration Selector -->
         <div class="duration-selector" id="duration-selector-wrap">
-          <label>Focus Duration:</label>
+          <label>Focus Duration Timer</label>
           <div class="duration-chips">
             <button class="chip active" data-mins="0">Unlimited</button>
             <button class="chip" data-mins="15">15m</button>
@@ -147,10 +145,10 @@
         <hr class="divider">
 
         <!-- Keyboard Lock Toggle -->
-        <div class="control-row">
+        <div class="control-row" style="margin-bottom: 0;">
           <div class="control-info">
             <h4>Hardware Keyboard Lock</h4>
-            <p>Blocks typing & hotkeys (Bypass: Ctrl+Alt+Shift+P)</p>
+            <p>Temporarily disables keyboard typing and hotkeys.<br>Emergency Unlock: <strong style="color: var(--primary);">Ctrl + Alt + Shift + P</strong></p>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-keylock">
@@ -165,8 +163,7 @@
           <h3>📑 Browser Tab Limiter</h3>
           <span class="badge badge-accent" id="tab-count-badge">5 Tabs Max</span>
         </div>
-        <p class="section-desc">Enforced in both Chrome and Edge. Any newly opened tab exceeding this limit is instantly
-          closed.</p>
+        <p class="section-desc">Enforced in Chrome and Edge. Any newly opened tab exceeding this ceiling is closed instantly.</p>
 
         <div class="tab-slider-wrap">
           <div class="slider-labels">
@@ -178,20 +175,20 @@
         </div>
       </section>
 
-      <!-- 4. Live PC Monitor & Screen -->
+      <!-- 4. Live PC Activity Monitor -->
       <section class="card">
         <div class="card-header">
-          <h3>📸 Live PC Activity</h3>
+          <h3>📸 Live PC Activity &amp; Surveillance</h3>
           <button id="refresh-screen-btn" class="btn btn-sm btn-secondary">📷 Take Live Screenshot</button>
         </div>
 
         <div class="monitor-info-box">
           <div class="info-row">
-            <span class="info-label">Active App:</span>
+            <span class="info-label">Active Application:</span>
             <span class="info-value highlight" id="active-app-name">Checking...</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Window Title:</span>
+            <span class="info-label">Current Window Title:</span>
             <span class="info-value" id="active-window-title">Checking...</span>
           </div>
         </div>
@@ -206,7 +203,7 @@
       <section class="card full-width">
         <div class="card-header">
           <h3>📋 Whitelist Manager</h3>
-          <span class="badge">Real-time Sync</span>
+          <span class="badge">Real-Time Sync</span>
         </div>
 
         <div class="whitelist-tabs">
@@ -219,7 +216,7 @@
         <!-- Apps Panel -->
         <div class="tab-panel active" id="panel-apps">
           <div class="tag-input-row">
-            <input type="text" id="input-app" placeholder="e.g. code.exe, word.exe">
+            <input type="text" id="input-app" placeholder="e.g. code.exe, word.exe, notepad.exe">
             <button class="btn btn-primary" id="btn-add-app">Add App</button>
           </div>
           <div class="tag-cloud" id="tag-cloud-apps"></div>
@@ -228,7 +225,7 @@
         <!-- Websites Panel -->
         <div class="tab-panel" id="panel-sites">
           <div class="tag-input-row">
-            <input type="text" id="input-site" placeholder="e.g. khanacademy.org, wikipedia.org">
+            <input type="text" id="input-site" placeholder="e.g. khanacademy.org, wikipedia.org, github.com">
             <button class="btn btn-primary" id="btn-add-site">Add Website</button>
           </div>
           <div class="tag-cloud" id="tag-cloud-sites"></div>
@@ -237,7 +234,7 @@
         <!-- YouTube Channels Panel -->
         <div class="tab-panel" id="panel-channels">
           <div class="tag-input-row">
-            <input type="text" id="input-channel" placeholder="e.g. @freecodecamp, @khanacademy">
+            <input type="text" id="input-channel" placeholder="e.g. @freecodecamp, @khanacademy, @3blue1brown">
             <button class="btn btn-primary" id="btn-add-channel">Add Channel</button>
           </div>
           <div class="tag-cloud" id="tag-cloud-channels"></div>
@@ -246,36 +243,32 @@
         <!-- Installed Apps Panel -->
         <div class="tab-panel" id="panel-installed">
           <div class="tag-input-row">
-            <input type="text" id="search-installed"
-              placeholder="🔍 Search installed apps (e.g. Chrome, Blender, VS Code)...">
+            <input type="text" id="search-installed" placeholder="🔍 Search installed PC applications (e.g. Chrome, Blender, VS Code)...">
             <button class="btn btn-secondary" id="btn-refresh-installed">Refresh List</button>
           </div>
           <div id="installed-apps-list" class="installed-apps-table">
-            <div style="color: var(--text-dim); padding: 12px;">Loading installed applications from PC...</div>
+            <div style="color: var(--text-muted); padding: 16px; text-align: center; font-size: 13px;">Loading installed applications from PC...</div>
           </div>
         </div>
       </section>
 
-      <!-- 6. Remote App Maintenance & GitHub Sync -->
+      <!-- 6. Remote Maintenance & Cloud Sync -->
       <section class="card full-width">
         <div class="card-header">
-          <h3>🚀 Remote App Updates & Maintenance</h3>
+          <h3>🚀 Remote App Updates &amp; Maintenance</h3>
+          <span class="badge">Self-Resurrecting</span>
         </div>
-        <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5;">
-          Pull all bug fixes, improvements, and code changes from GitHub directly onto your brother's PC. The app
-          automatically restarts its background service with the new code without needing physical access.
+        <p class="section-desc">
+          Pull latest bug fixes and security improvements directly onto your brother's PC. The background service automatically restarts with the new code without needing physical access.
         </p>
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <button id="btn-remote-update" class="btn btn-primary"
-              style="display: flex; align-items: center; gap: 8px;">
-              <span>🔄</span> <span id="btn-remote-update-text">Sync & Update App from GitHub</span>
+            <button id="btn-remote-update" class="btn btn-primary">
+              <span>🔄</span> <span id="btn-remote-update-text">Sync &amp; Update App from GitHub</span>
             </button>
             <span id="update-status-badge" class="badge" style="display: none;"></span>
           </div>
-          <div id="update-output-box"
-            style="display: none; background: rgba(5, 7, 12, 0.8); border: 1px solid var(--border-card); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.8rem; color: #a3e635; white-space: pre-wrap; max-height: 160px; overflow-y: auto;">
-          </div>
+          <div id="update-output-box" style="display: none;"></div>
         </div>
       </section>
     </main>
