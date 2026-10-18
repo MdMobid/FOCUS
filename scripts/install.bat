@@ -8,30 +8,36 @@ echo                     1-Click Installer
 echo ============================================================
 echo.
 
-:: 1. Check Administrator Privileges
+:: 1. Check & Request Administrator Privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo [ERROR] This installer must be run as Administrator!
-    echo Please right-click 'install.bat' and select 'Run as administrator'.
+    echo [*] Requesting Administrator permissions...
+    powershell -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~dpnx0\"\"' -Verb RunAs"
+    exit /b
+)
+
+:: 2. Find Python Installation
+set PYTHON_EXE=
+for /f "delims=" %%I in ('python -c "import sys; print(sys.executable)" 2^>nul') do set PYTHON_EXE=%%I
+if not defined PYTHON_EXE (
+    for /f "delims=" %%I in ('py -c "import sys; print(sys.executable)" 2^>nul') do set PYTHON_EXE=%%I
+)
+
+if not defined PYTHON_EXE (
+    echo [ERROR] Python is not installed or not added to system PATH!
+    echo.
+    echo Please install Python 3.10+ on this PC:
+    echo 1. Download installer from https://www.python.org/downloads/
+    echo 2. Check the box "Add python.exe to PATH" during installation.
+    echo 3. Run install.bat again.
     echo.
     pause
     exit /b 1
 )
 
-:: 2. Find Python Installation
-where python >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [ERROR] Python is not found in PATH!
-    echo Please install Python 3.10+ on this PC and check 'Add to PATH'.
-    pause
-    exit /b 1
-)
-
-for /f "delims=" %%I in ('where python') do set PYTHON_EXE=%%I & goto :found_python
-:found_python
 echo [OK] Using Python: %PYTHON_EXE%
 
-:: Prefer pythonw.exe (Windowless Python) so NO CMD window is shown to brother
+:: Prefer pythonw.exe (Windowless Python) so NO CMD window is shown
 set RUNNER_EXE=%PYTHON_EXE:python.exe=pythonw.exe%
 if not exist "%RUNNER_EXE%" set RUNNER_EXE=%PYTHON_EXE%
 echo [OK] Background Runner: %RUNNER_EXE%
@@ -81,10 +87,20 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
 )
 :ip_found
 
-:: 7. Start FOCUS silently in background (No CMD Window)
+:: 7. Start FOCUS in background
 echo.
-echo [*] Launching FOCUS Daemon silently in background...
+echo [*] Launching FOCUS Daemon in background...
 start "" /d "%PROJECT_DIR%" "%RUNNER_EXE%" "%MAIN_SCRIPT%"
+
+:: Verify process started
+timeout /t 2 /nobreak >nul
+tasklist | findstr /i "python" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo [OK] FOCUS background daemon is successfully running!
+) else (
+    echo [!] Background launch may have failed. Showing console output:
+    start cmd /k "cd /d \"%PROJECT_DIR%\" && python \"%MAIN_SCRIPT%\""
+)
 
 echo.
 echo ============================================================
@@ -101,7 +117,7 @@ echo.
 echo   Parent Security: PIN-Protected (Hashed SHA-256)
 echo   Emergency Unlock Hotkey: Ctrl + Alt + Shift + P
 echo.
-echo   Bookmark the Phone URL on your smartphone home screen!
+echo   Close this window when done. FOCUS will stay running in background.
 echo ============================================================
 echo.
 pause
