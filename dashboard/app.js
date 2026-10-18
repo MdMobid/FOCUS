@@ -9,6 +9,8 @@ let fbUrl = localStorage.getItem("focus_fb_url") || "";
 let fbSecret = localStorage.getItem("focus_fb_secret") || "";
 let selectedDurationMins = 0;
 let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [] };
+let lastFocusToggleTime = 0;
+let lastKeylockToggleTime = 0;
 
 // DOM Elements
 const loginModal = document.getElementById("login-modal");
@@ -96,6 +98,35 @@ async function sendAction(action, extraPayload = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    // Optimistically update cloud status nodes so polling never flips switches back
+    try {
+      if (action === "focus") {
+        await fetch(`${cleanUrl}/focus/status/focus_mode.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Boolean(extraPayload.enabled)),
+        });
+        const expiresAt = extraPayload.duration_mins > 0 ? (Date.now() / 1000) + (extraPayload.duration_mins * 60) : 0;
+        await fetch(`${cleanUrl}/focus/status/focus_expires_at.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(expiresAt),
+        });
+      } else if (action === "keylock") {
+        await fetch(`${cleanUrl}/focus/status/keyboard_locked.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Boolean(extraPayload.enabled)),
+        });
+      } else if (action === "set_tabs") {
+        await fetch(`${cleanUrl}/focus/status/max_tabs.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.max_tabs),
+        });
+      }
+    } catch (e) { }
   } else {
     await apiFetch("/api/action", { method: "POST", body: payload });
   }
@@ -246,28 +277,43 @@ async function pollStatus() {
     }
     if (!data) return;
 
-    // Connection Status
-    statusPill.className = "status-pill online";
-    statusText.textContent = fbUrl ? "Cloud (Live)" : "Local";
+    // Connection Status & Liveness Detection
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const lastSeen = Number(data.last_seen || 0);
+    const isOnline = lastSeen > 0 ? (nowSecs - lastSeen < 20) : Boolean(data.online && !fbUrl);
 
-    // Focus Mode
-    toggleFocus.checked = Boolean(data.focus_mode);
-    if (data.focus_mode) {
-      if (data.focus_expires_at > 0) {
-        const remainingSecs = Math.max(0, Math.floor(data.focus_expires_at - (Date.now() / 1000)));
-        const mins = Math.floor(remainingSecs / 60);
-        focusStatusBadge.textContent = `Active (${mins}m left)`;
-      } else {
-        focusStatusBadge.textContent = "Active (Unlimited)";
-      }
-      focusStatusBadge.className = "badge badge-primary";
+    if (isOnline) {
+      statusPill.className = "status-pill online";
+      statusText.textContent = fbUrl ? "Cloud (Live)" : "Local";
     } else {
-      focusStatusBadge.textContent = "Standby (All Limits OFF)";
-      focusStatusBadge.className = "badge";
+      statusPill.className = "status-pill offline";
+      statusText.textContent = fbUrl ? "PC Offline" : "Disconnected";
     }
 
-    // Keyboard Lock
-    toggleKeylock.checked = Boolean(data.keyboard_locked);
+    // Focus Mode (prevent snapback while user recently clicked)
+    const isInteractingFocus = (Date.now() - lastFocusToggleTime) < 8000;
+    if (!isInteractingFocus && data.focus_mode !== undefined) {
+      toggleFocus.checked = Boolean(data.focus_mode);
+      if (data.focus_mode) {
+        if (data.focus_expires_at > 0) {
+          const remainingSecs = Math.max(0, Math.floor(data.focus_expires_at - (Date.now() / 1000)));
+          const mins = Math.floor(remainingSecs / 60);
+          focusStatusBadge.textContent = `Active (${mins}m left)`;
+        } else {
+          focusStatusBadge.textContent = "Active (Unlimited)";
+        }
+        focusStatusBadge.className = "badge badge-primary";
+      } else {
+        focusStatusBadge.textContent = "Standby (All Limits OFF)";
+        focusStatusBadge.className = "badge";
+      }
+    }
+
+    // Keyboard Lock (prevent snapback while user recently clicked)
+    const isInteractingKeylock = (Date.now() - lastKeylockToggleTime) < 8000;
+    if (!isInteractingKeylock && data.keyboard_locked !== undefined) {
+      toggleKeylock.checked = Boolean(data.keyboard_locked);
+    }
 
     // Active App & Window
     if (data.active_window) {
@@ -312,9 +358,18 @@ document.querySelectorAll(".btn-action").forEach((btn) => {
 
 // --- 5. Focus Mode & Keyboard Lock Controls ---
 toggleFocus.addEventListener("change", async () => {
+  lastFocusToggleTime = Date.now();
   const enabled = toggleFocus.checked;
+
+  if (enabled) {
+    focusStatusBadge.textContent = selectedDurationMins > 0 ? `Active (${selectedDurationMins}m)` : "Active (Unlimited)";
+    focusStatusBadge.className = "badge badge-primary";
+  } else {
+    focusStatusBadge.textContent = "Standby (All Limits OFF)";
+    focusStatusBadge.className = "badge";
+  }
+
   await sendAction("focus", { enabled, duration_mins: selectedDurationMins });
-  pollStatus();
 });
 
 // Duration Chips
@@ -325,15 +380,17 @@ document.querySelectorAll(".chip").forEach((chip) => {
     selectedDurationMins = parseInt(chip.getAttribute("data-mins") || "0", 10);
 
     if (toggleFocus.checked) {
+      lastFocusToggleTime = Date.now();
+      focusStatusBadge.textContent = selectedDurationMins > 0 ? `Active (${selectedDurationMins}m)` : "Active (Unlimited)";
       sendAction("focus", { enabled: true, duration_mins: selectedDurationMins });
     }
   });
 });
 
 toggleKeylock.addEventListener("change", async () => {
+  lastKeylockToggleTime = Date.now();
   const enabled = toggleKeylock.checked;
   await sendAction("keylock", { enabled });
-  pollStatus();
 });
 
 // --- 6. Tab Limiter Slider ---
