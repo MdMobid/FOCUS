@@ -192,8 +192,13 @@ class MainCoordinator:
         print("          FOCUS: Parental Control & Focus Manager          ")
         print("=" * 60)
 
-        # Always initialize with keyboard unlocked for safety on startup
+        # ── SAFETY DEFAULTS ────────────────────────────────────────────────
+        # Always boot with keyboard UNLOCKED and Focus Mode OFF, regardless
+        # of whatever state Firebase may have stored from the previous session.
+        # These are re-applied AFTER cloud_bridge.start() so they win any race.
         self.config.set("keyboard_locked", False)
+        self.config.set("focus_mode", False)
+        self.config.set("focus_expires_at", 0)
         self.keyboard_guard.set_locked(False)
 
         # Start subsystems
@@ -201,6 +206,14 @@ class MainCoordinator:
         self.process_guardian.start()
         self.web_server.start()
         self.cloud_bridge.start()
+
+        # Re-apply safety defaults a second time after cloud bridge startup
+        # (firebase_bridge._sync_initial_rules may run during .start() and
+        # overwrite local config if rules arrive before our set() calls above)
+        self.config.set("keyboard_locked", False)
+        self.config.set("focus_mode", False)
+        self.config.set("focus_expires_at", 0)
+        self.keyboard_guard.set_locked(False)
 
         # Spawn watchdog
         self.start_watchdog()

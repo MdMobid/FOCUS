@@ -92,6 +92,15 @@ class FirebaseCloudBridge:
             req = urllib.request.Request(stream_url)
             req.add_header("Accept", "text/event-stream")
 
+            # ── Anti-replay on reconnect ─────────────────────────────────────
+            # Firebase SSE always sends the current value of the node as a 'put'
+            # event the moment a connection is established (or re-established after
+            # a disconnect). Without refreshing the watermark here, that replayed
+            # command would pass the timestamp guard and execute again.
+            # By bumping _last_processed_timestamp to NOW on every connect attempt,
+            # only commands issued AFTER this reconnect are treated as new.
+            self._last_processed_timestamp = time.time()
+
             try:
                 # Open persistent SSE stream
                 with urllib.request.urlopen(req, timeout=60) as resp:
@@ -120,6 +129,7 @@ class FirebaseCloudBridge:
             except Exception as stream_err:
                 # Reconnection delay if internet disconnects
                 time.sleep(3.0)
+
 
     def _handle_cloud_event(self, event_type: str, data: Any):
         """Processes command payloads pushed from the parent's phone."""
@@ -183,6 +193,11 @@ class FirebaseCloudBridge:
 
     def _sync_initial_rules(self):
         """Syncs master rules between Firebase RTDB and local PC."""
+        # These keys must NEVER be inherited from Firebase on startup.
+        # keyboard_locked must always start False (safe) and focus_mode
+        # must always start disabled so the child's PC boots normally.
+        STARTUP_RESET_KEYS = {"keyboard_locked", "focus_mode", "focus_expires_at"}
+
         try:
             # Sync parent PIN hash securely to Firebase RTDB for web dashboard auth
             pin_hash = self.coordinator.config.get("pin_hash", "")
@@ -195,15 +210,26 @@ class FirebaseCloudBridge:
                 data_str = resp.read().decode("utf-8")
                 remote_data = json.loads(data_str) if data_str else None
                 if remote_data and isinstance(remote_data, dict):
-                    print("[FOCUS Cloud] Downloaded master rules from Firebase RTDB.")
+                    # Strip safety-critical keys — they are always reset locally on boot
+                    for key in STARTUP_RESET_KEYS:
+                        remote_data.pop(key, None)
+                    print("[FOCUS Cloud] Downloaded master rules from Firebase RTDB (safety keys excluded).")
                     self.coordinator.update_rules(remote_data)
                 else:
                     # Populate Firebase RTDB with default rules
                     local_rules = self.coordinator.config.get_all()
                     self.push_data("/focus/rules.json", local_rules)
                     print("[FOCUS Cloud] Initialized Firebase RTDB with default rules.")
+
+            # Always push the safe startup defaults back to Firebase
+            # so the dashboard reflects the actual current state immediately
+            self.push_data("/focus/rules/keyboard_locked.json", False)
+            self.push_data("/focus/rules/focus_mode.json", False)
+            self.push_data("/focus/rules/focus_expires_at.json", 0)
+
         except Exception as exc:
             print(f"[FOCUS Cloud] Rules sync error: {exc}", file=sys.stderr)
+
 
     def start(self):
         """Starts the outbound telemetry publisher and command listener threads."""
@@ -212,12 +238,23 @@ class FirebaseCloudBridge:
             return
 
         self._sync_initial_rules()
+
+        # Immediately push the true current state so the dashboard doesn't have
+        # to wait up to 3s for the first telemetry tick to reflect reality.
+        try:
+            status = self.coordinator.get_status()
+            status["last_seen"] = int(time.time())
+            self.push_data("/focus/status.json", status)
+        except Exception:
+            pass
+
         self._stop_event.clear()
         self._listener_thread = threading.Thread(target=self._command_listener_loop, daemon=True)
         self._telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
 
         self._listener_thread.start()
         self._telemetry_thread.start()
+
 
     def stop(self):
         self._stop_event.set()

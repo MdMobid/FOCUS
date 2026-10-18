@@ -12,6 +12,14 @@ let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [] }
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
 
+// Reconnect tracking — when the PC goes offline then comes back, we must
+// NOT let the daemon's startup-safety reset (focus=off, keylock=off) flip
+// the parent's toggles. We freeze both switches for 15s on every reconnect.
+let _pcWasOffline = false;
+let _lastOnlineTime = 0;
+const RECONNECT_FREEZE_MS = 15000; // ms to ignore status updates after reconnect
+
+
 // DOM Elements
 const loginModal = document.getElementById("login-modal");
 const appContainer = document.getElementById("app-container");
@@ -285,13 +293,26 @@ async function pollStatus() {
     if (isOnline) {
       statusPill.className = "status-pill online";
       statusText.textContent = fbUrl ? "Cloud (Live)" : "Local";
+
+      // PC just came back online after being offline — freeze toggles so the
+      // daemon's startup safety reset (focus=false, keylock=false) doesn't
+      // visually snap the parent's switches back.
+      if (_pcWasOffline) {
+        _pcWasOffline = false;
+        _lastOnlineTime = Date.now();
+        const freeze = Date.now();
+        lastFocusToggleTime = freeze;
+        lastKeylockToggleTime = freeze;
+        console.log("[FOCUS] PC reconnected — freezing toggle updates for", RECONNECT_FREEZE_MS / 1000, "s");
+      }
     } else {
       statusPill.className = "status-pill offline";
       statusText.textContent = fbUrl ? "PC Offline" : "Disconnected";
+      _pcWasOffline = true;  // Mark that PC was seen offline so we freeze on next reconnect
     }
 
-    // Focus Mode (prevent snapback while user recently clicked)
-    const isInteractingFocus = (Date.now() - lastFocusToggleTime) < 8000;
+    // Focus Mode (prevent snapback while user recently clicked OR just reconnected)
+    const isInteractingFocus = (Date.now() - lastFocusToggleTime) < RECONNECT_FREEZE_MS;
     if (!isInteractingFocus && data.focus_mode !== undefined) {
       toggleFocus.checked = Boolean(data.focus_mode);
       if (data.focus_mode) {
@@ -309,8 +330,8 @@ async function pollStatus() {
       }
     }
 
-    // Keyboard Lock (prevent snapback while user recently clicked)
-    const isInteractingKeylock = (Date.now() - lastKeylockToggleTime) < 8000;
+    // Keyboard Lock (prevent snapback while user recently clicked OR just reconnected)
+    const isInteractingKeylock = (Date.now() - lastKeylockToggleTime) < RECONNECT_FREEZE_MS;
     if (!isInteractingKeylock && data.keyboard_locked !== undefined) {
       toggleKeylock.checked = Boolean(data.keyboard_locked);
     }

@@ -37,17 +37,45 @@ class PROCESSENTRY32W(ctypes.Structure):
 
 # Core Windows OS and essential development/system processes that must NEVER be terminated
 ESSENTIAL_SYSTEM_PROCESSES: Set[str] = {
+    # Core OS
     "system", "system idle process", "registry", "smss.exe", "csrss.exe",
     "wininit.exe", "services.exe", "lsass.exe", "svchost.exe", "fontdrvhost.exe",
     "dwm.exe", "explorer.exe", "sihost.exe", "taskhostw.exe", "ctfmon.exe",
     "conhost.exe", "audiodg.exe", "searchhost.exe", "shellexperiencehost.exe",
     "startmenuexperiencehost.exe", "textinputhost.exe", "runtimebroker.exe",
     "securityhealthservice.exe", "smartscreen.exe", "spoolsv.exe",
+    "workloadssessionhost.exe", "workloadssessionmanager.exe",
+    # Session / logon — killing these causes the screen to lock or session to end
+    "winlogon.exe", "logonui.exe", "userinit.exe", "usoclient.exe",
+    "lsm.exe", "wlrmdr.exe",
+    # Networking & Wi-Fi — killing these drops internet connectivity
+    "wlanext.exe", "wifisvc.exe", "netsh.exe", "nettcpip.exe",
+    "wifioptimizationservice.exe", "wifitaskmgr.exe",
+    "dnscache.exe", "iphlpsvc.exe", "nlasvc.exe", "netprofm.exe",
+    "nlaapi.dll", "dnsapi.dll",
+    "w32tm.exe", "msdtc.exe", "rasman.exe", "rasphone.exe",
+    "mobilityextensions.exe", "wcmsvc.exe",
+    # Security / Defender / Antivirus
+    "msmpeng.exe", "nissrv.exe", "mssecces.exe", "mpcmdrun.exe",
+    "antimalwareserviceexecutable.exe", "securityhealthsystray.exe",
+    # Windows Update
+    "wuauclt.exe", "wusa.exe", "trustedinstaller.exe", "tiworker.exe",
+    "updateassistant.exe", "windowsupdatebox.exe",
+    # GPU / Display drivers (killing causes black screen)
+    "nvvsvc.exe", "nvdisplay.container.exe", "nvspcaps64.exe", "nvsphelper64.exe",
+    "igfxtray.exe", "igfxem.exe", "igfxext.exe", "igfxpers.exe",
+    "amdow.exe", "radeoninstaller.exe",
+    # Audio
+    "audiodg.exe", "audiosrv.dll",
+    # Dev tools (immune so FOCUS can be managed during dev)
     "antigravity ide.exe", "antigravity.exe", "antigravity-ide.exe",
     "code.exe", "node.exe", "language_server_windows_x64.exe", "pyrefly.exe",
-    "workloadssessionhost.exe", "workloadssessionmanager.exe",
     "cmd.exe", "powershell.exe", "powershell_ise.exe", "pwsh.exe",
-    "git.exe", "rg.exe", "bash.exe"
+    "git.exe", "rg.exe", "bash.exe",
+    # Task Scheduler / COM / RPC
+    "taskeng.exe", "taskhost.exe", "mstask.exe",
+    "rpcss.exe", "rpcsvc.exe", "dcomlaunch.exe",
+    "comhost.exe", "dllhost.exe",
 }
 
 
