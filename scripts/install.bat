@@ -102,8 +102,12 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
 
 :: 7. Start FOCUS in background
 echo.
-echo [*] Launching FOCUS Daemon in background...
+echo [*] Cleaning previous instances and launching FOCUS Daemon in background...
 taskkill /f /im pythonw.exe >nul 2>&1
+taskkill /f /im python.exe >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v "DisableTaskMgr" /f >nul 2>&1
+timeout /t 1 /nobreak >nul
+
 start "" /d "%PROJECT_DIR%" "%RUNNER_EXE%" "%MAIN_SCRIPT%"
 
 :: Verify process started

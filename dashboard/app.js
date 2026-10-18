@@ -12,13 +12,11 @@ let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [] }
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
 
-// Reconnect tracking — when the PC goes offline then comes back, we must
-// NOT let the daemon's startup-safety reset (focus=off, keylock=off) flip
-// the parent's toggles. We freeze both switches for 15s on every reconnect.
+// Reconnect tracking — when the PC goes offline then comes back, we freeze
+// toggle updates briefly (3s) so initial startup sync doesn't flip switches.
 let _pcWasOffline = false;
 let _lastOnlineTime = 0;
-const RECONNECT_FREEZE_MS = 15000; // ms to ignore status updates after reconnect
-
+const RECONNECT_FREEZE_MS = 3000; // 3s interaction debounce
 
 // DOM Elements
 const loginModal = document.getElementById("login-modal");
@@ -97,7 +95,9 @@ saveCloudBtn?.addEventListener("click", () => {
 });
 
 async function sendAction(action, extraPayload = {}) {
-  const payload = { action, timestamp: Date.now(), ...extraPayload };
+  const cmdId = "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+  const payload = { id: cmdId, action, timestamp: Date.now(), ...extraPayload };
+  console.log("[FOCUS Dashboard] Dispatching action:", action, payload);
   if (fbUrl) {
     const cleanUrl = fbUrl.replace(/\/$/, "");
     const url = `${cleanUrl}/focus/command.json?auth=${fbSecret}`;

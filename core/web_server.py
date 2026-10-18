@@ -221,7 +221,7 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         content_length = int(self.headers.get("Content-Length", 0))
-        body_bytes = self.wfile.read(content_length) if content_length > 0 else b"{}"
+        body_bytes = self.rfile.read(content_length) if content_length > 0 else b"{}"
         try:
             payload = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
         except Exception:

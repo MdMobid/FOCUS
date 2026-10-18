@@ -33,7 +33,8 @@ class FirebaseCloudBridge:
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
         self._telemetry_thread: Optional[threading.Thread] = None
-        self._last_processed_timestamp = time.time()
+        self._processed_command_ids = set()
+        self._last_processed_timestamp = 0.0
 
     def _build_url(self, path: str) -> str:
         clean_path = path.lstrip("/")
@@ -50,8 +51,7 @@ class FirebaseCloudBridge:
             req.add_header("Content-Type", "application/json")
             with urllib.request.urlopen(req, timeout=10) as response:
                 return response.status in (200, 204)
-        except Exception as exc:
-            # Silent fallback if network temporarily drops
+        except Exception:
             return False
 
     def _telemetry_loop(self):
@@ -92,15 +92,6 @@ class FirebaseCloudBridge:
             req = urllib.request.Request(stream_url)
             req.add_header("Accept", "text/event-stream")
 
-            # ── Anti-replay on reconnect ─────────────────────────────────────
-            # Firebase SSE always sends the current value of the node as a 'put'
-            # event the moment a connection is established (or re-established after
-            # a disconnect). Without refreshing the watermark here, that replayed
-            # command would pass the timestamp guard and execute again.
-            # By bumping _last_processed_timestamp to NOW on every connect attempt,
-            # only commands issued AFTER this reconnect are treated as new.
-            self._last_processed_timestamp = time.time()
-
             try:
                 # Open persistent SSE stream
                 with urllib.request.urlopen(req, timeout=60) as resp:
@@ -123,12 +114,12 @@ class FirebaseCloudBridge:
                             try:
                                 payload = json.loads(data_str)
                                 self._handle_cloud_event(event_type, payload)
-                            except Exception as json_err:
+                            except Exception:
                                 pass
 
-            except Exception as stream_err:
-                # Reconnection delay if internet disconnects
-                time.sleep(3.0)
+            except Exception:
+                # Reconnection delay if internet disconnects or 60s stream timeout
+                time.sleep(2.0)
 
 
     def _handle_cloud_event(self, event_type: str, data: Any):
@@ -136,22 +127,37 @@ class FirebaseCloudBridge:
         if not isinstance(data, dict):
             return
 
-        # Firebase 'put' event may nest payload in 'data'
         cmd_obj = data.get("data") if "data" in data and isinstance(data["data"], dict) else data
 
         action = cmd_obj.get("action")
+        cmd_id = cmd_obj.get("id")
         timestamp = float(cmd_obj.get("timestamp", 0))
 
-        # Convert JS millisecond timestamps (Date.now()) to seconds
+        # Normalize JS millisecond timestamp (Date.now()) to seconds
         if timestamp > 1e11:
             timestamp /= 1000.0
 
-        # Ignore stale or previously executed commands
-        if not action or timestamp <= self._last_processed_timestamp:
+        if not action:
             return
 
-        self._last_processed_timestamp = timestamp
-        print(f"[FOCUS Cloud] Received parent command from 1,000km: '{action}'")
+        # Anti-replay & Deduplication
+        if cmd_id:
+            cmd_id_str = str(cmd_id)
+            if cmd_id_str in self._processed_command_ids:
+                return
+            self._processed_command_ids.add(cmd_id_str)
+            if len(self._processed_command_ids) > 1000:
+                try:
+                    self._processed_command_ids.pop()
+                except KeyError:
+                    pass
+        else:
+            # Fallback if no ID is sent by legacy client
+            if timestamp <= self._last_processed_timestamp:
+                return
+            self._last_processed_timestamp = timestamp
+
+        print(f"[FOCUS Cloud] Received parent command: '{action}' (ID: {cmd_id or 'none'})")
 
         # Execute action on local machine
         success = self.coordinator.handle_action(action, cmd_obj)
@@ -185,6 +191,7 @@ class FirebaseCloudBridge:
 
         # Push immediate confirmation
         self.push_data("/focus/command_ack.json", {
+            "id": cmd_id or "",
             "action": action,
             "timestamp": timestamp,
             "success": success,
@@ -193,9 +200,6 @@ class FirebaseCloudBridge:
 
     def _sync_initial_rules(self):
         """Syncs master rules between Firebase RTDB and local PC."""
-        # These keys must NEVER be inherited from Firebase on startup.
-        # keyboard_locked must always start False (safe) and focus_mode
-        # must always start disabled so the child's PC boots normally.
         STARTUP_RESET_KEYS = {"keyboard_locked", "focus_mode", "focus_expires_at"}
 
         try:
@@ -220,6 +224,25 @@ class FirebaseCloudBridge:
                     local_rules = self.coordinator.config.get_all()
                     self.push_data("/focus/rules.json", local_rules)
                     print("[FOCUS Cloud] Initialized Firebase RTDB with default rules.")
+
+            # Record any existing command in Firebase so it's not replayed on boot
+            try:
+                cmd_url = self._build_url("/focus/command.json")
+                cmd_req = urllib.request.Request(cmd_url)
+                with urllib.request.urlopen(cmd_req, timeout=5) as c_resp:
+                    raw = c_resp.read().decode("utf-8")
+                    if raw and raw != "null":
+                        existing_cmd = json.loads(raw)
+                        if isinstance(existing_cmd, dict):
+                            e_id = existing_cmd.get("id")
+                            if e_id:
+                                self._processed_command_ids.add(str(e_id))
+                            e_ts = float(existing_cmd.get("timestamp", 0))
+                            if e_ts > 1e11:
+                                e_ts /= 1000.0
+                            self._last_processed_timestamp = max(self._last_processed_timestamp, e_ts)
+            except Exception:
+                pass
 
             # Always push the safe startup defaults back to Firebase
             # so the dashboard reflects the actual current state immediately
