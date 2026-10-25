@@ -3,7 +3,6 @@
 .agents/
 .planning/
 AGENTS.md
-README.md
 
 # Sensitive local configurations (contain Firebase Secret & Master PIN)
 config/rules.json
