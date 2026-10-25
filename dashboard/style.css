@@ -75,6 +75,8 @@
 
 html {
   color-scheme: dark;
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 body {
@@ -423,6 +425,8 @@ h4,
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+  overflow: hidden;
+  contain: paint;
 }
 
 @media (min-width: 640px) {
@@ -851,6 +855,7 @@ input[type="range"]::-webkit-slider-thumb:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: calc(100% - 95px);
   min-width: 0;
   flex: 1 1 auto;
 }

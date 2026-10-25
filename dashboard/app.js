@@ -342,8 +342,15 @@ async function pollStatus() {
       const winTitle = data.active_window.title || "Idle";
       activeAppName.textContent = appName;
       activeAppName.title = appName;
-      activeWindowTitle.textContent = winTitle;
-      activeWindowTitle.title = winTitle;
+
+      // Hard-cap title length to max 40 chars with '...' to completely prevent any layout shift
+      const MAX_TITLE_LEN = 40;
+      const displayTitle = winTitle.length > MAX_TITLE_LEN
+        ? winTitle.substring(0, MAX_TITLE_LEN - 3).trim() + "..."
+        : winTitle;
+
+      activeWindowTitle.textContent = displayTitle;
+      activeWindowTitle.title = winTitle; // Full title available on hover
     }
 
     // Tab Limit
