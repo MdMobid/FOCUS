@@ -9,7 +9,10 @@ config/rules.json
 config/focus.db
 config/*.tmp
 
-# Python cache
+# Python cache & logs
 __pycache__/
 *.pyc
 *.pyo
+*.log
+core/service.log
+test_launch.vbs

@@ -20,6 +20,29 @@ os.chdir(PROJECT_DIR)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+# If running headless under pythonw or Windows background, direct outputs to service.log
+if sys.stdout is None or not hasattr(sys.stdout, "write"):
+    try:
+        log_path = os.path.join(SCRIPT_DIR, "service.log")
+        sys.stdout = open(log_path, "a", encoding="utf-8", buffering=1)
+        sys.stderr = sys.stdout
+    except Exception:
+        pass
+
+
+def acquire_single_instance_mutex(name: str = "FOCUS_Daemon_SingleInstance_Mutex"):
+    """Native Win32 mutex ensuring only one FOCUS background daemon runs at a time."""
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        ERROR_ALREADY_EXISTS = 183
+        mutex = kernel32.CreateMutexW(None, False, name)
+        if not mutex or kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+            return None
+        return mutex
+    except Exception:
+        return True
+
 from config_manager import config
 from keyboard_hook import KeyboardGuard
 from process_guard import get_active_window_info
@@ -481,6 +504,12 @@ class MainCoordinator:
 
     def run(self):
         """Starts all background services."""
+        # Enforce single instance to prevent race conditions from duplicate autostart triggers
+        self._instance_mutex = acquire_single_instance_mutex()
+        if self._instance_mutex is None:
+            print("[FOCUS Coordinator] Another instance of FOCUS daemon is already active. Exiting cleanly.")
+            return
+
         print("=" * 60)
         print("          FOCUS: Parental Control & Focus Manager          ")
         print("=" * 60)
@@ -505,7 +534,11 @@ class MainCoordinator:
         self.config.set("keyboard_locked", False)
         self.config.set("focus_mode", False)
         self.config.set("focus_expires_at", 0)
-        self.keyboard_guard.set_locked(False)
+        # Ensure Windows autostart entry is active
+        try:
+            setup_startup_entry()
+        except Exception as exc:
+            print(f"[FOCUS Coordinator] Startup registration warning: {exc}")
 
         # Spawn watchdog
         self.start_watchdog()
@@ -542,5 +575,16 @@ class MainCoordinator:
 
 
 if __name__ == "__main__":
-    coordinator = MainCoordinator()
-    coordinator.run()
+    try:
+        coordinator = MainCoordinator()
+        coordinator.run()
+    except Exception as exc:
+        import traceback
+        err_msg = f"[FOCUS Crash] {time.strftime('%Y-%m-%d %H:%M:%S')}: {exc}\n"
+        print(err_msg, file=sys.stderr)
+        try:
+            with open(os.path.join(SCRIPT_DIR, "service.log"), "a", encoding="utf-8") as f:
+                f.write(err_msg)
+                traceback.print_exc(file=f)
+        except Exception:
+            pass
