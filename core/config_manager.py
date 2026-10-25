@@ -53,6 +53,8 @@ class ConfigManager:
             return self.db.get_allowed_sites()
         elif key == "allowed_channels":
             return self.db.get_allowed_channels()
+        elif key == "allowed_videos":
+            return self.db.get_allowed_videos()
         elif key == "focus_mode":
             val = self.db.get_setting("focus_mode")
             return val == "1" if val is not None else default
@@ -129,6 +131,15 @@ class ConfigManager:
                 self.db.remove_allowed_channel(x)
             for x in new_set - current:
                 self.db.add_allowed_channel(x)
+            return
+
+        if key == "allowed_videos" and isinstance(value, list):
+            current = set(self.db.get_allowed_videos())
+            new_set = {str(x).strip() for x in value if str(x).strip()}
+            for x in current - new_set:
+                self.db.remove_allowed_video(x)
+            for x in new_set - current:
+                self.db.add_allowed_video(x)
             return
 
         # Boolean conversion for DB storage

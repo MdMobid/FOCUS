@@ -8,7 +8,7 @@ let authToken = localStorage.getItem("focus_parent_token") || "";
 let fbUrl = localStorage.getItem("focus_fb_url") || "";
 let fbSecret = localStorage.getItem("focus_fb_secret") || "";
 let selectedDurationMins = 0;
-let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [] };
+let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [], allowed_videos: [] };
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
 
@@ -881,10 +881,15 @@ async function handleResolveRequest(reqId, decision, req) {
         if (!currentRules.allowed_sites.includes(clean)) {
           currentRules.allowed_sites.push(clean);
         }
-      } else if (reqType === "video" && req.channel) {
-        const clean = "@" + req.channel.replace(/^@/, "");
-        if (!currentRules.allowed_channels.includes(clean)) {
-          currentRules.allowed_channels.push(clean);
+      } else if (reqType === "video") {
+        const raw = req.target || req.url || "";
+        const m = raw.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
+        const videoId = m ? m[1] : raw.trim();
+        if (videoId) {
+          if (!currentRules.allowed_videos) currentRules.allowed_videos = [];
+          if (!currentRules.allowed_videos.includes(videoId)) {
+            currentRules.allowed_videos.push(videoId);
+          }
         }
       } else if (reqType === "app" && req.target) {
         let clean = req.target.toLowerCase().trim();

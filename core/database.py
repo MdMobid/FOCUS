@@ -68,7 +68,17 @@ class FocusDatabase:
                 );
             """)
 
-            # 5. Activity Audit Logs
+            # 5. Allowed YouTube Videos (individual video whitelist)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS allowed_videos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    video_id TEXT UNIQUE COLLATE NOCASE NOT NULL,
+                    title TEXT,
+                    added_at REAL NOT NULL
+                );
+            """)
+
+            # 6. Activity Audit Logs
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS activity_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -228,6 +238,37 @@ class FocusDatabase:
             conn.commit()
             return cursor.rowcount > 0
 
+    # --- YouTube Individual Video Operations ---
+    def get_allowed_videos(self) -> List[str]:
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT video_id FROM allowed_videos ORDER BY added_at DESC;")
+            return [row["video_id"] for row in cursor.fetchall()]
+
+    def add_allowed_video(self, video_id: str, title: str = "") -> bool:
+        clean = video_id.strip()
+        if not clean:
+            return False
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO allowed_videos (video_id, title, added_at) VALUES (?, ?, ?);",
+                    (clean, title, time.time())
+                )
+                conn.commit()
+                return True
+            except Exception:
+                return False
+
+    def remove_allowed_video(self, video_id: str) -> bool:
+        clean = video_id.strip()
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM allowed_videos WHERE video_id = ?;", (clean,))
+            conn.commit()
+            return cursor.rowcount > 0
+
     # --- Aggregated Rules Representation ---
     def get_all_rules(self) -> Dict[str, Any]:
         return {
@@ -242,6 +283,7 @@ class FocusDatabase:
             "allowed_apps": self.get_allowed_apps(),
             "allowed_sites": self.get_allowed_sites(),
             "allowed_channels": self.get_allowed_channels(),
+            "allowed_videos": self.get_allowed_videos(),
         }
 
     def log_event(self, event_type: str, details: str):

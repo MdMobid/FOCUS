@@ -6,6 +6,7 @@ embedded web server, registry policies, and the anti-kill watchdog.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -370,14 +371,16 @@ class MainCoordinator:
                     print(f"[FOCUS Coordinator] Auto-approved application: {clean_app}")
 
             elif req_type == "video":
-                channel = target_req.get("channel")
-                if channel:
-                    clean_ch = "@" + channel.lstrip("@")
-                    allowed_channels = self.config.get("allowed_channels", [])
-                    if clean_ch.lower() not in [c.lower() for c in allowed_channels]:
-                        allowed_channels.append(clean_ch)
-                        self.config.set("allowed_channels", allowed_channels)
-                        print(f"[FOCUS Coordinator] Auto-approved creator for video: {clean_ch}")
+                # Extract YouTube Video ID from url or target (11-character identifier)
+                raw_url = target_req.get("url") or target_req.get("target") or ""
+                m = re.search(r"(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})", raw_url)
+                video_id = m.group(1) if m else raw_url.strip()
+                if video_id:
+                    allowed_videos = self.config.get("allowed_videos", [])
+                    if video_id not in allowed_videos:
+                        allowed_videos.append(video_id)
+                        self.config.set("allowed_videos", allowed_videos)
+                        print(f"[FOCUS Coordinator] Auto-approved individual video: {video_id} (channel remains restricted)")
 
         self.config.set("access_requests", requests)
 
@@ -393,6 +396,7 @@ class MainCoordinator:
                 self.cloud_bridge.push_data("/focus/rules/allowed_apps.json", self.config.get("allowed_apps", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_channels.json", self.config.get("allowed_channels", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_sites.json", self.config.get("allowed_sites", []))
+                self.cloud_bridge.push_data("/focus/rules/allowed_videos.json", self.config.get("allowed_videos", []))
             except Exception:
                 pass
 
