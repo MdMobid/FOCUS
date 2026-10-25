@@ -338,8 +338,12 @@ async function pollStatus() {
 
     // Active App & Window
     if (data.active_window) {
-      activeAppName.textContent = data.active_window.app || "Desktop";
-      activeWindowTitle.textContent = data.active_window.title || "Idle";
+      const appName = data.active_window.app || "Desktop";
+      const winTitle = data.active_window.title || "Idle";
+      activeAppName.textContent = appName;
+      activeAppName.title = appName;
+      activeWindowTitle.textContent = winTitle;
+      activeWindowTitle.title = winTitle;
     }
 
     // Tab Limit
