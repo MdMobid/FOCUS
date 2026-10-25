@@ -69,16 +69,6 @@ class FirebaseCloudBridge:
                 requests = self.coordinator.get_access_requests()
                 self.push_data("/focus/requests.json", requests)
 
-                # Sync installed apps every 120 seconds
-                if time.time() - last_apps_sync > 120:
-                    try:
-                        from app_scanner import get_installed_apps
-                        installed = get_installed_apps()
-                        self.push_data("/focus/installed_apps.json", {"apps": installed})
-                        last_apps_sync = time.time()
-                    except Exception:
-                        pass
-
             except Exception as exc:
                 print(f"[FOCUS Cloud] Telemetry push error: {exc}", file=sys.stderr)
 

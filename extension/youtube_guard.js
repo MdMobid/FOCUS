@@ -248,7 +248,7 @@ function removeBlockOverlay() {
   }
 }
 
-// Inspect current YouTube video channel or individual video
+// Inspect current YouTube video channel
 function inspectCurrentChannel() {
   const path = window.location.pathname;
 
@@ -265,41 +265,23 @@ function inspectCurrentChannel() {
     return;
   }
 
-  // If on watch page: check individual video ID whitelist first!
+  // If on watch page: check owner element in DOM
   if (path === "/watch") {
-    const videoId = new URLSearchParams(window.location.search).get("v");
-    safeGetRules((rules) => {
-      // When Focus Mode is OFF: all YouTube is allowed freely
-      if (!rules.focus_mode) {
-        removeBlockOverlay();
-        return;
-      }
+    const ownerEl = document.querySelector("#owner ytd-channel-name a") ||
+      document.querySelector("ytd-video-owner-renderer #channel-name a") ||
+      document.querySelector("#meta #channel-name a");
 
-      // 1. Check if this individual video ID is explicitly whitelisted
-      const allowedVideos = (rules.allowed_videos || []).map((v) => String(v).trim());
-      if (videoId && allowedVideos.includes(videoId)) {
-        removeBlockOverlay();
-        return;
+    if (ownerEl) {
+      const href = ownerEl.getAttribute("href") || "";
+      const text = ownerEl.textContent.trim();
+      let handle = "";
+      if (href.startsWith("/@")) {
+        handle = href.split("/")[0] ? href : href.substring(1);
+      } else {
+        handle = text;
       }
-
-      // 2. Fall back to checking if the creator's channel is whitelisted
-      const ownerEl =
-        document.querySelector("#owner ytd-channel-name a") ||
-        document.querySelector("ytd-video-owner-renderer #channel-name a") ||
-        document.querySelector("#meta #channel-name a");
-
-      if (ownerEl) {
-        const href = ownerEl.getAttribute("href") || "";
-        const text = ownerEl.textContent.trim();
-        let handle = "";
-        if (href.startsWith("/@")) {
-          handle = href.split("/")[0] ? href : href.substring(1);
-        } else {
-          handle = text;
-        }
-        checkChannelAllowed(handle);
-      }
-    });
+      checkChannelAllowed(handle);
+    }
   }
 }
 

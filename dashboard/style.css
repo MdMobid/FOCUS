@@ -1058,9 +1058,8 @@ input[type="range"]::-webkit-slider-thumb:active {
   align-content: flex-start;
 }
 
-/* Tags / Chips */
-.tag,
-.tag-chip {
+/* Tags */
+.tag {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1084,8 +1083,7 @@ input[type="range"]::-webkit-slider-thumb:active {
   color: #fee2e2;
 }
 
-.tag .tag-remove,
-.tag-chip .remove-btn {
+.tag .tag-remove {
   background: none;
   border: none;
   color: var(--text-dim);
@@ -1098,72 +1096,8 @@ input[type="range"]::-webkit-slider-thumb:active {
   transition: var(--anim-fast);
 }
 
-.tag .tag-remove:hover,
-.tag-chip .remove-btn:hover {
+.tag .tag-remove:hover {
   color: var(--accent-coral);
-}
-
-.installed-apps-table {
-  background: var(--bg-well);
-  box-shadow: var(--neu-recessed-shallow);
-  border: 1px solid var(--border-rim);
-  border-radius: var(--radius-md);
-  max-height: 300px;
-  overflow-y: auto;
-  font-size: 12px;
-}
-
-.app-item-row,
-.installed-app-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-rim);
-  gap: 10px;
-  transition: var(--anim-fast);
-}
-
-.app-item-row:last-child,
-.installed-app-row:last-child {
-  border-bottom: none;
-}
-
-.app-item-row:hover,
-.installed-app-row:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.app-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
-}
-
-.app-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-details {
-  display: flex;
-  gap: 6px;
-  font-size: 10.5px;
-  color: var(--text-dim);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.app-exe {
-  color: var(--accent-sapphire);
-}
-
-.app-publisher {
-  color: var(--text-dim);
 }
 
 /* Button Classes */
@@ -1325,12 +1259,6 @@ input[type="range"]::-webkit-slider-thumb:active {
   color: var(--accent-sapphire);
   background: rgba(59, 130, 246, 0.08);
   border-color: rgba(59, 130, 246, 0.2);
-}
-
-.request-type-icon.icon-app {
-  color: var(--accent-violet);
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
 }
 
 .request-card-text {

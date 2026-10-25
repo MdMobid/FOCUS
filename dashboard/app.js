@@ -8,7 +8,7 @@ let authToken = localStorage.getItem("focus_parent_token") || "";
 let fbUrl = localStorage.getItem("focus_fb_url") || "";
 let fbSecret = localStorage.getItem("focus_fb_secret") || "";
 let selectedDurationMins = 0;
-let currentRules = { allowed_apps: [], allowed_sites: [], allowed_channels: [], allowed_videos: [] };
+let currentRules = { allowed_sites: [], allowed_channels: [] };
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
 
@@ -708,17 +708,6 @@ function renderAccessRequests(requests) {
           </svg>
         </div>
       `;
-    } else if (reqType === "app") {
-      typeLabel = "Application";
-      typeIconHtml = `
-        <div class="request-type-icon icon-app" title="Desktop Application">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-            <line x1="8" y1="21" x2="16" y2="21"></line>
-            <line x1="12" y1="17" x2="12" y2="21"></line>
-          </svg>
-        </div>
-      `;
     } else {
       typeLabel = "Website";
       typeIconHtml = `
@@ -746,7 +735,6 @@ function renderAccessRequests(requests) {
       else timeStr = `${Math.floor(elapsed / 86400)}d ago`;
     }
 
-    const isApp = reqType === "app";
     let actionsHtml = "";
     if (req.status === "pending") {
       actionsHtml = `
@@ -764,7 +752,6 @@ function renderAccessRequests(requests) {
             </svg>
             Reject
           </button>
-          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open and inspect content in new tab">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -773,14 +760,12 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
-          ` : ""}
         </div>
       `;
     } else if (req.status === "approved") {
       actionsHtml = `
         <div class="request-actions">
           <span class="request-status-pill request-status-approved">✓ Allowed</span>
-          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -789,14 +774,12 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
-          ` : ""}
         </div>
       `;
     } else {
       actionsHtml = `
         <div class="request-actions">
           <span class="request-status-pill request-status-rejected">✕ Rejected</span>
-          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -805,7 +788,6 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
-          ` : ""}
         </div>
       `;
     }
@@ -881,24 +863,10 @@ async function handleResolveRequest(reqId, decision, req) {
         if (!currentRules.allowed_sites.includes(clean)) {
           currentRules.allowed_sites.push(clean);
         }
-      } else if (reqType === "video") {
-        const raw = req.target || req.url || "";
-        const m = raw.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
-        const videoId = m ? m[1] : raw.trim();
-        if (videoId) {
-          if (!currentRules.allowed_videos) currentRules.allowed_videos = [];
-          if (!currentRules.allowed_videos.includes(videoId)) {
-            currentRules.allowed_videos.push(videoId);
-          }
-        }
-      } else if (reqType === "app" && req.target) {
-        let clean = req.target.toLowerCase().trim();
-        if (!clean.endsWith(".exe")) clean += ".exe";
-        if (!currentRules.allowed_apps.includes(clean)) {
-          currentRules.allowed_apps.push(clean);
-        }
-        if (typeof renderInstalledApps === "function") {
-          renderInstalledApps();
+      } else if (reqType === "video" && req.channel) {
+        const clean = "@" + req.channel.replace(/^@/, "");
+        if (!currentRules.allowed_channels.includes(clean)) {
+          currentRules.allowed_channels.push(clean);
         }
       }
       renderTagClouds();
@@ -962,7 +930,6 @@ async function fetchRules() {
 }
 
 function renderTagClouds() {
-  renderCloud("apps", currentRules.allowed_apps || []);
   renderCloud("sites", currentRules.allowed_sites || []);
   renderCloud("channels", currentRules.allowed_channels || []);
 }
@@ -1019,119 +986,18 @@ async function syncRulesToServer() {
   }
 }
 
-document.getElementById("btn-add-app").addEventListener("click", () => {
-  const inp = document.getElementById("input-app");
-  addItem("apps", inp.value);
-  inp.value = "";
-});
-document.getElementById("btn-add-site").addEventListener("click", () => {
+document.getElementById("btn-add-site")?.addEventListener("click", () => {
   const inp = document.getElementById("input-site");
-  addItem("sites", inp.value);
-  inp.value = "";
+  if (inp) {
+    addItem("sites", inp.value);
+    inp.value = "";
+  }
 });
-document.getElementById("btn-add-channel").addEventListener("click", () => {
+document.getElementById("btn-add-channel")?.addEventListener("click", () => {
   const inp = document.getElementById("input-channel");
-  addItem("channels", inp.value);
-  inp.value = "";
-});
-
-// --- 9. Installed Applications Discovery ---
-let installedApps = [];
-
-async function fetchInstalledApps() {
-  const listEl = document.getElementById("installed-apps-list");
-  listEl.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">Scanning installed software on PC...</div>';
-
-  try {
-    let data;
-    if (fbUrl) {
-      const cleanUrl = fbUrl.replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/focus/installed_apps.json?auth=${fbSecret}`);
-      if (res.ok) {
-        const json = await res.json();
-        data = json?.apps || [];
-      }
-    } else {
-      const res = await apiFetch("/api/installed_apps");
-      if (res.ok) {
-        const json = await res.json();
-        data = json.apps || [];
-      }
-    }
-
-    if (Array.isArray(data) && data.length > 0) {
-      installedApps = data;
-      renderInstalledApps();
-    } else {
-      listEl.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">No installed apps found or scan in progress.</div>';
-    }
-  } catch (err) {
-    listEl.innerHTML = '<div style="color: var(--danger); padding: 12px;">Failed to load installed apps.</div>';
-  }
-}
-
-function renderInstalledApps(filterQuery = "") {
-  const listEl = document.getElementById("installed-apps-list");
-  listEl.innerHTML = "";
-  const allowedSet = new Set((currentRules.allowed_apps || []).map((a) => a.toLowerCase()));
-  const query = filterQuery.toLowerCase().trim();
-
-  const filtered = installedApps.filter((app) => {
-    return (
-      app.name.toLowerCase().includes(query) ||
-      app.exe.toLowerCase().includes(query) ||
-      (app.publisher && app.publisher.toLowerCase().includes(query))
-    );
-  });
-
-  if (filtered.length === 0) {
-    listEl.innerHTML = '<div style="color: var(--text-dim); padding: 12px;">No matching applications found.</div>';
-    return;
-  }
-
-  filtered.forEach((app) => {
-    const isAllowed = allowedSet.has(app.exe.toLowerCase());
-    const row = document.createElement("div");
-    row.className = "app-item-row";
-    row.innerHTML = `
-      <div class="app-meta">
-        <span class="app-name">${app.name}</span>
-        <div class="app-details">
-          <span class="app-exe">${app.exe}</span>
-          <span class="app-publisher">${app.publisher || "Unknown"}</span>
-        </div>
-      </div>
-      <div>
-        ${isAllowed
-        ? '<span class="badge badge-primary">Allowed</span>'
-        : `<button class="btn btn-sm btn-primary btn-allow-app" data-exe="${app.exe}">+ Allow</button>`
-      }
-      </div>
-    `;
-
-    row.querySelector(".btn-allow-app")?.addEventListener("click", async () => {
-      await addItem("apps", app.exe);
-      renderInstalledApps(document.getElementById("search-installed").value);
-    });
-
-    listEl.appendChild(row);
-  });
-}
-
-document.getElementById("search-installed")?.addEventListener("input", (e) => {
-  renderInstalledApps(e.target.value);
-});
-
-document.getElementById("btn-refresh-installed")?.addEventListener("click", () => {
-  fetchInstalledApps();
-});
-
-// Load installed apps when installed tab is clicked
-document.querySelector('[data-tab="installed"]')?.addEventListener("click", () => {
-  if (installedApps.length === 0) {
-    fetchInstalledApps();
-  } else {
-    renderInstalledApps();
+  if (inp) {
+    addItem("channels", inp.value);
+    inp.value = "";
   }
 });
 

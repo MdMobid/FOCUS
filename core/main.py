@@ -6,7 +6,6 @@ embedded web server, registry policies, and the anti-kill watchdog.
 
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
@@ -22,7 +21,7 @@ if SCRIPT_DIR not in sys.path:
 
 from config_manager import config
 from keyboard_hook import KeyboardGuard
-from process_guard import ProcessGuardian, get_active_window_info
+from process_guard import get_active_window_info
 from registry_policy import set_task_manager_disabled, setup_startup_entry
 import system_power
 from web_server import EmbeddedWebServer
@@ -37,10 +36,7 @@ class MainCoordinator:
         # 1. Initialize Keyboard Interceptor
         self.keyboard_guard = KeyboardGuard(on_emergency_unlock=self.on_emergency_unlock)
 
-        # 2. Initialize Process Guardian
-        self.process_guardian = ProcessGuardian(self.config)
-
-        # 3. Initialize Embedded Web Server (Local LAN fallback)
+        # 2. Initialize Embedded Web Server (Local LAN fallback)
         port = int(self.config.get("server_port", 8443))
         self.web_server = EmbeddedWebServer(port, self)
 
@@ -261,7 +257,7 @@ class MainCoordinator:
 
     def update_rules(self, new_rules: Dict[str, Any]):
         """Updates whitelists from web dashboard and mirrors to rules.json."""
-        for key in ("allowed_apps", "allowed_sites", "allowed_channels", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
+        for key in ("allowed_sites", "allowed_channels", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
             if key in new_rules:
                 self.config.set(key, new_rules[key])
 
@@ -360,43 +356,23 @@ class MainCoordinator:
                     self.config.set("allowed_sites", allowed_sites)
                     print(f"[FOCUS Coordinator] Auto-approved website: {clean_site}")
 
-            elif req_type == "app" and target:
-                clean_app = target.lower().strip()
-                if not clean_app.endswith(".exe"):
-                    clean_app += ".exe"
-                allowed_apps = self.config.get("allowed_apps", [])
-                if clean_app not in [a.lower() for a in allowed_apps]:
-                    allowed_apps.append(clean_app)
-                    self.config.set("allowed_apps", allowed_apps)
-                    print(f"[FOCUS Coordinator] Auto-approved application: {clean_app}")
-
             elif req_type == "video":
-                # Extract YouTube Video ID from url or target (11-character identifier)
-                raw_url = target_req.get("url") or target_req.get("target") or ""
-                m = re.search(r"(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})", raw_url)
-                video_id = m.group(1) if m else raw_url.strip()
-                if video_id:
-                    allowed_videos = self.config.get("allowed_videos", [])
-                    if video_id not in allowed_videos:
-                        allowed_videos.append(video_id)
-                        self.config.set("allowed_videos", allowed_videos)
-                        print(f"[FOCUS Coordinator] Auto-approved individual video: {video_id} (channel remains restricted)")
+                channel = target_req.get("channel")
+                if channel:
+                    clean_ch = "@" + channel.lstrip("@")
+                    allowed_channels = self.config.get("allowed_channels", [])
+                    if clean_ch.lower() not in [c.lower() for c in allowed_channels]:
+                        allowed_channels.append(clean_ch)
+                        self.config.set("allowed_channels", allowed_channels)
+                        print(f"[FOCUS Coordinator] Auto-approved creator for video: {clean_ch}")
 
         self.config.set("access_requests", requests)
-
-        # Mirror rules to disk rules.json
-        try:
-            self.update_rules({})
-        except Exception:
-            pass
 
         if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
             try:
                 self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
-                self.cloud_bridge.push_data("/focus/rules/allowed_apps.json", self.config.get("allowed_apps", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_channels.json", self.config.get("allowed_channels", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_sites.json", self.config.get("allowed_sites", []))
-                self.cloud_bridge.push_data("/focus/rules/allowed_videos.json", self.config.get("allowed_videos", []))
             except Exception:
                 pass
 
@@ -451,7 +427,6 @@ class MainCoordinator:
 
         # Start subsystems
         self.keyboard_guard.start()
-        self.process_guardian.start()
         self.web_server.start()
         self.cloud_bridge.start()
 
@@ -472,6 +447,17 @@ class MainCoordinator:
 
         try:
             while True:
+                # Check Focus Mode auto-expiry
+                focus_active = self.config.get("focus_mode", False)
+                expires_at = self.config.get("focus_expires_at", 0)
+                if focus_active and expires_at > 0 and time.time() >= expires_at:
+                    print("[FOCUS Coordinator] Focus Mode duration expired. Resetting.")
+                    self.config.set("focus_mode", False)
+                    self.config.set("focus_expires_at", 0)
+                    set_task_manager_disabled(False)
+                    if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                        self.cloud_bridge.push_data("/focus/status/focus_mode.json", False)
+                        self.cloud_bridge.push_data("/focus/status/focus_expires_at.json", 0)
                 time.sleep(1)
         except KeyboardInterrupt:
             self.stop()
@@ -479,7 +465,6 @@ class MainCoordinator:
     def stop(self):
         print("[FOCUS Coordinator] Shutting down...")
         self.keyboard_guard.stop()
-        self.process_guardian.stop()
         self.web_server.stop()
         self.cloud_bridge.stop()
         # Restore task manager before exiting

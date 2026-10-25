@@ -41,16 +41,7 @@ class FocusDatabase:
                 );
             """)
 
-            # 2. Allowed Applications
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS allowed_apps (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE COLLATE NOCASE NOT NULL,
-                    added_at REAL NOT NULL
-                );
-            """)
-
-            # 3. Allowed Websites
+            # 2. Allowed Websites
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS allowed_sites (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,17 +59,7 @@ class FocusDatabase:
                 );
             """)
 
-            # 5. Allowed YouTube Videos (individual video whitelist)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS allowed_videos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    video_id TEXT UNIQUE COLLATE NOCASE NOT NULL,
-                    title TEXT,
-                    added_at REAL NOT NULL
-                );
-            """)
-
-            # 6. Activity Audit Logs
+            # 5. Activity Audit Logs
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS activity_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,16 +90,6 @@ class FocusDatabase:
         for k, v in default_settings.items():
             if self.get_setting(k) is None:
                 self.set_setting(k, v)
-
-        # Default Apps
-        default_apps = [
-            "chrome.exe", "msedge.exe", "notepad.exe", "calc.exe",
-            "code.exe", "python.exe", "pythonw.exe", "focus.exe",
-            "antigravity ide.exe", "antigravity.exe", "antigravity-ide.exe",
-            "node.exe", "language_server_windows_x64.exe", "pyrefly.exe"
-        ]
-        for app in default_apps:
-            self.add_allowed_app(app)
 
         # Default Sites
         default_sites = [
@@ -153,32 +124,6 @@ class FocusDatabase:
             conn.commit()
 
     # --- Whitelist Operations ---
-    def get_allowed_apps(self) -> List[str]:
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM allowed_apps ORDER BY name ASC;")
-            return [row["name"] for row in cursor.fetchall()]
-
-    def add_allowed_app(self, name: str) -> bool:
-        clean = name.strip().lower()
-        if not clean:
-            return False
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute("INSERT OR IGNORE INTO allowed_apps (name, added_at) VALUES (?, ?);", (clean, time.time()))
-                conn.commit()
-                return True
-            except Exception:
-                return False
-
-    def remove_allowed_app(self, name: str) -> bool:
-        clean = name.strip().lower()
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM allowed_apps WHERE name = ?;", (clean,))
-            conn.commit()
-            return cursor.rowcount > 0
 
     def get_allowed_sites(self) -> List[str]:
         with self._lock, self._get_connection() as conn:
@@ -238,37 +183,6 @@ class FocusDatabase:
             conn.commit()
             return cursor.rowcount > 0
 
-    # --- YouTube Individual Video Operations ---
-    def get_allowed_videos(self) -> List[str]:
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT video_id FROM allowed_videos ORDER BY added_at DESC;")
-            return [row["video_id"] for row in cursor.fetchall()]
-
-    def add_allowed_video(self, video_id: str, title: str = "") -> bool:
-        clean = video_id.strip()
-        if not clean:
-            return False
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    "INSERT OR IGNORE INTO allowed_videos (video_id, title, added_at) VALUES (?, ?, ?);",
-                    (clean, title, time.time())
-                )
-                conn.commit()
-                return True
-            except Exception:
-                return False
-
-    def remove_allowed_video(self, video_id: str) -> bool:
-        clean = video_id.strip()
-        with self._lock, self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM allowed_videos WHERE video_id = ?;", (clean,))
-            conn.commit()
-            return cursor.rowcount > 0
-
     # --- Aggregated Rules Representation ---
     def get_all_rules(self) -> Dict[str, Any]:
         return {
@@ -280,10 +194,8 @@ class FocusDatabase:
             "max_tabs_range": int(self.get_setting("max_tabs_range", "15")),
             "server_port": int(self.get_setting("server_port", "8443")),
             "firebase_url": self.get_setting("firebase_url", ""),
-            "allowed_apps": self.get_allowed_apps(),
             "allowed_sites": self.get_allowed_sites(),
             "allowed_channels": self.get_allowed_channels(),
-            "allowed_videos": self.get_allowed_videos(),
         }
 
     def log_event(self, event_type: str, details: str):

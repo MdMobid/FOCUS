@@ -56,14 +56,14 @@ class TestFocusCore(unittest.TestCase):
 
         try:
             test_db = FocusDatabase(db_path=tmp_db_path)
-            # Test Add App
-            self.assertTrue(test_db.add_allowed_app("customtest.exe"))
-            apps = test_db.get_allowed_apps()
-            self.assertIn("customtest.exe", apps)
+            # Test Add Channel
+            self.assertTrue(test_db.add_allowed_channel("@testchannel"))
+            channels = test_db.get_allowed_channels()
+            self.assertIn("@testchannel", channels)
 
-            # Test Remove App
-            self.assertTrue(test_db.remove_allowed_app("customtest.exe"))
-            self.assertNotIn("customtest.exe", test_db.get_allowed_apps())
+            # Test Remove Channel
+            self.assertTrue(test_db.remove_allowed_channel("@testchannel"))
+            self.assertNotIn("@testchannel", test_db.get_allowed_channels())
 
             # Test Add Site
             self.assertTrue(test_db.add_allowed_site("testsite.org"))
@@ -75,15 +75,6 @@ class TestFocusCore(unittest.TestCase):
         finally:
             if os.path.exists(tmp_db_path):
                 os.remove(tmp_db_path)
-
-    def test_app_scanner(self):
-        from app_scanner import get_installed_apps
-        apps = get_installed_apps()
-        self.assertIsInstance(apps, list)
-        self.assertGreater(len(apps), 0)
-        first = apps[0]
-        self.assertIn("name", first)
-        self.assertIn("exe", first)
 
 
 if __name__ == "__main__":

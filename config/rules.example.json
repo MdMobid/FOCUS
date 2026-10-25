@@ -6,22 +6,6 @@
   "max_tabs": 1,
   "min_tabs": 1,
   "max_tabs_range": 15,
-  "allowed_apps": [
-    "chrome.exe",
-    "msedge.exe",
-    "notepad.exe",
-    "calc.exe",
-    "code.exe",
-    "python.exe",
-    "pythonw.exe",
-    "focus.exe",
-    "antigravity ide.exe",
-    "antigravity.exe",
-    "antigravity-ide.exe",
-    "node.exe",
-    "language_server_windows_x64.exe",
-    "pyrefly.exe"
-  ],
   "allowed_sites": [
     "wikipedia.org",
     "youtube.com",

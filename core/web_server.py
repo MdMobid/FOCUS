@@ -22,8 +22,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from app_scanner import get_installed_apps
-
 # Session storage for authenticated parent sessions
 ACTIVE_SESSIONS = set()
 SESSION_EXPIRY = {}
@@ -240,14 +238,7 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, status_data)
             return
 
-        # Installed Apps endpoint
-        if path == "/api/installed_apps":
-            if not self._is_authenticated():
-                self._send_json(401, {"error": "Unauthorized"})
-                return
-            installed = get_installed_apps()
-            self._send_json(200, {"apps": installed})
-            return
+
 
         # Screenshot capture endpoint
         if path == "/api/screenshot":

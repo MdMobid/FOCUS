@@ -368,12 +368,7 @@
         </div>
 
         <div class="whitelist-tabs">
-          <button class="tab-btn active" data-tab="apps">
-            <span
-              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-sapphire); margin-right:4px;"></span>
-            Allowed Apps
-          </button>
-          <button class="tab-btn" data-tab="sites">
+          <button class="tab-btn active" data-tab="sites">
             <span
               style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-emerald); margin-right:4px;"></span>
             Allowed Websites
@@ -383,24 +378,10 @@
               style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-coral); margin-right:4px;"></span>
             YouTube Channels
           </button>
-          <button class="tab-btn" data-tab="installed">
-            <span
-              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-violet); margin-right:4px;"></span>
-            Installed Software
-          </button>
-        </div>
-
-        <!-- Apps Panel -->
-        <div class="tab-panel active" id="panel-apps">
-          <div class="tag-input-row">
-            <input type="text" id="input-app" placeholder="e.g. code.exe, word.exe, notepad.exe">
-            <button class="btn btn-primary" id="btn-add-app">+ Add</button>
-          </div>
-          <div class="tag-cloud" id="tag-cloud-apps"></div>
         </div>
 
         <!-- Websites Panel -->
-        <div class="tab-panel" id="panel-sites">
+        <div class="tab-panel active" id="panel-sites">
           <div class="tag-input-row">
             <input type="text" id="input-site" placeholder="e.g. khanacademy.org, wikipedia.org, github.com">
             <button class="btn btn-primary" id="btn-add-site">+ Add</button>
@@ -415,18 +396,6 @@
             <button class="btn btn-primary" id="btn-add-channel">+ Add</button>
           </div>
           <div class="tag-cloud" id="tag-cloud-channels"></div>
-        </div>
-
-        <!-- Installed Apps Panel -->
-        <div class="tab-panel" id="panel-installed">
-          <div class="tag-input-row">
-            <input type="text" id="search-installed"
-              placeholder="Search registry software (e.g. Chrome, Blender, VS Code)...">
-            <button class="btn btn-secondary" id="btn-refresh-installed">Scan</button>
-          </div>
-          <div id="installed-apps-list" class="installed-apps-table">
-            <div style="color: var(--text-dim); padding: 14px;">Querying installed workstation software...</div>
-          </div>
         </div>
       </section>
 
