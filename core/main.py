@@ -110,15 +110,35 @@ class MainCoordinator:
         """Pulls latest commits from GitHub origin main and resurrects via watchdog."""
         print(f"[FOCUS Coordinator] Remote app update initiated (cmd_id: {cmd_id or 'none'})...")
         project_dir = os.path.dirname(SCRIPT_DIR)
+        git_cmd = [
+            "git",
+            "-c", "http.version=HTTP/1.1",
+            "-c", "http.postBuffer=524288000",
+            "-c", "safe.directory=*",
+            "pull", "origin", "main"
+        ]
         try:
             res = subprocess.run(
-                ["git", "-c", "safe.directory=*", "pull", "origin", "main"],
+                git_cmd,
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
                 shell=(os.name == 'nt'),
                 timeout=60
             )
+            # Retry once on transient network drop (e.g. "remote end hung up unexpectedly")
+            if res.returncode != 0:
+                print(f"[FOCUS Coordinator] Git pull attempt 1 had error code {res.returncode}. Retrying in 2s...")
+                time.sleep(2)
+                res = subprocess.run(
+                    git_cmd,
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                    shell=(os.name == 'nt'),
+                    timeout=60
+                )
+
             stdout = (res.stdout or "").strip()
             stderr = (res.stderr or "").strip()
             output = (stdout + "\n" + stderr).strip()
