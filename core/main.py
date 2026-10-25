@@ -4,6 +4,7 @@ Integrates Win32 power management, keyboard hook, process whitelist guardian,
 embedded web server, registry policies, and the anti-kill watchdog.
 """
 
+import json
 import os
 import subprocess
 import sys
