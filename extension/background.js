@@ -23,7 +23,8 @@ const DEFAULT_RULES = {
 // Initialize rules in local storage
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(["focus_rules"], (res) => {
-    if (!res.focus_rules) {
+    if (chrome.runtime?.lastError) return;
+    if (!res || !res.focus_rules) {
       chrome.storage.local.set({ focus_rules: DEFAULT_RULES });
     }
   });
@@ -53,7 +54,8 @@ setInterval(syncRulesWithDaemon, 3000);
 // --- 1. Browser Tab Limiter ---
 chrome.tabs.onCreated.addListener((newTab) => {
   chrome.storage.local.get(["focus_rules"], (res) => {
-    const rules = res.focus_rules || DEFAULT_RULES;
+    if (chrome.runtime?.lastError) return;
+    const rules = (res && res.focus_rules) || DEFAULT_RULES;
 
     // When Focus Mode is OFF: all tab limits are removed (open any number of tabs)
     if (!rules.focus_mode) return;
@@ -106,7 +108,8 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   }
 
   chrome.storage.local.get(["focus_rules"], (res) => {
-    const rules = res.focus_rules || DEFAULT_RULES;
+    if (chrome.runtime?.lastError) return;
+    const rules = (res && res.focus_rules) || DEFAULT_RULES;
 
     // When Focus Mode is OFF: all websites are 100% visible and unblocked
     if (!rules.focus_mode) return;

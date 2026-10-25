@@ -23,10 +23,49 @@ const DISTRACTION_FREE_CSS = `
   }
 `;
 
+// Safe helper to read rules without throwing when extension is reloaded or context is invalidated
+let _pollInterval = null;
+
+function safeGetRules(callback) {
+  try {
+    if (typeof chrome === "undefined" || !chrome?.runtime?.id || !chrome?.storage?.local) {
+      if (_pollInterval) {
+        clearInterval(_pollInterval);
+        _pollInterval = null;
+      }
+      return;
+    }
+
+    chrome.storage.local.get(["focus_rules"], (res) => {
+      if (chrome.runtime?.lastError) {
+        return;
+      }
+      const rules = (res && res.focus_rules) ? res.focus_rules : {};
+      callback(rules);
+    });
+  } catch (err) {
+    if (_pollInterval) {
+      clearInterval(_pollInterval);
+      _pollInterval = null;
+    }
+  }
+}
+
+// React instantly when rules change in local storage
+try {
+  if (typeof chrome !== "undefined" && chrome?.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && changes.focus_rules) {
+        updateDistractionFreeStyles();
+        inspectCurrentChannel();
+      }
+    });
+  }
+} catch (e) { }
+
 // Distraction-Free CSS management based on focus_mode
 function updateDistractionFreeStyles() {
-  chrome.storage.local.get(["focus_rules"], (res) => {
-    const rules = res.focus_rules || {};
+  safeGetRules((rules) => {
     const existing = document.getElementById("focus-distraction-style");
     if (rules.focus_mode) {
       if (!existing) {
@@ -249,9 +288,7 @@ function inspectCurrentChannel() {
 function checkChannelAllowed(channelIdentifier) {
   if (!channelIdentifier) return;
 
-  chrome.storage.local.get(["focus_rules"], (res) => {
-    const rules = res.focus_rules || {};
-
+  safeGetRules((rules) => {
     // When Focus Mode is OFF: all YouTube channels are allowed freely
     if (!rules.focus_mode) {
       removeBlockOverlay();
@@ -281,7 +318,22 @@ window.addEventListener("yt-navigate-finish", () => {
 });
 
 // Periodic check for dynamic DOM load and Focus Mode toggles
-setInterval(() => {
-  updateDistractionFreeStyles();
-  inspectCurrentChannel();
-}, 2000);
+_pollInterval = setInterval(() => {
+  try {
+    if (typeof chrome === "undefined" || !chrome?.runtime?.id) {
+      if (_pollInterval) {
+        clearInterval(_pollInterval);
+        _pollInterval = null;
+      }
+      return;
+    }
+    updateDistractionFreeStyles();
+    inspectCurrentChannel();
+  } catch (err) {
+    if (_pollInterval) {
+      clearInterval(_pollInterval);
+      _pollInterval = null;
+    }
+  }
+}, 2500);
+
