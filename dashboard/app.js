@@ -1169,10 +1169,34 @@ btnRemoteUpdate?.addEventListener("click", async () => {
   }
 });
 
+// --- 11. Mobile Bottom Navigation Active Tracking ---
+document.querySelectorAll(".bottom-nav .nav-item").forEach((item) => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll(".bottom-nav .nav-item").forEach((i) => i.classList.remove("active"));
+    item.classList.add("active");
+  });
+});
+
+// Intersection observer to automatically update active bottom nav item during scroll
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      const navItem = document.querySelector(`.bottom-nav a[href="#${id}"]`);
+      if (navItem) {
+        document.querySelectorAll(".bottom-nav .nav-item").forEach((i) => i.classList.remove("active"));
+        navItem.classList.add("active");
+      }
+    }
+  });
+}, { threshold: 0.35 });
+
+document.querySelectorAll("section.card[id]").forEach((sec) => navObserver.observe(sec));
+
 // Auto login if token exists
 if (authToken) {
   loginModal.style.display = "none";
-  appContainer.style.display = "flex";
+  appContainer.style.display = "block";
   initDashboard();
 } else {
   loginModal.style.display = "flex";

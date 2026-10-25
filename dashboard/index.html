@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
 </head>
 
@@ -24,7 +24,7 @@
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
       </div>
-      <h2>FOCUS Control</h2>
+      <h2>FOCUS Command</h2>
       <p class="subtitle" id="login-subtitle">Enter Parent Master PIN to access console</p>
 
       <form id="login-form">
@@ -33,10 +33,10 @@
             inputmode="numeric">
         </div>
         <div id="login-error" class="error-msg"></div>
-        <button type="submit" class="btn btn-primary btn-block">Unlock Dashboard</button>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top: 14px;">Unlock Dashboard</button>
       </form>
 
-      <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-rim); text-align: center;">
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-subtle); text-align: center;">
         <button type="button" id="login-cloud-btn" class="btn btn-secondary btn-sm" style="width: 100%;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -51,7 +51,7 @@
   <!-- Cloud Settings Modal (Global) -->
   <div id="cloud-modal" class="modal-overlay" style="display: none;">
     <div class="modal-card">
-      <div class="brand-badge" style="color: var(--accent-sky);">
+      <div class="brand-badge" style="color: var(--accent-secondary);">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
@@ -62,17 +62,17 @@
 
       <div style="margin-bottom: 12px; text-align: left;">
         <label
-          style="display:block; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; font-weight:600;">Database
+          style="display:block; font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; font-weight:600;">Database
           URL</label>
         <input type="text" id="cfg-fb-url" placeholder="https://your-project-rtdb.firebaseio.com"
-          style="width: 100%; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-rim); background: var(--bg-well); color: var(--text-main); font-size: 13px; outline: none;">
+          style="width: 100%; min-height: 44px; padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--bg-well); color: var(--text-high); font-size: 13px; outline: none;">
       </div>
       <div style="margin-bottom: 18px; text-align: left;">
         <label
-          style="display:block; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; font-weight:600;">Database
+          style="display:block; font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; font-weight:600;">Database
           Secret / Auth Token</label>
         <input type="password" id="cfg-fb-secret" placeholder="Paste your Firebase Secret here"
-          style="width: 100%; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-rim); background: var(--bg-well); color: var(--text-main); font-size: 13px; outline: none;">
+          style="width: 100%; min-height: 44px; padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--bg-well); color: var(--text-high); font-size: 13px; outline: none;">
       </div>
 
       <div style="display: flex; gap: 8px;">
@@ -86,31 +86,31 @@
   <div id="app-container" class="app-layout" style="display: none;">
     <!-- Top Header Bar -->
     <header class="header">
-      <div class="brand">
-        <div class="logo-icon">
+      <div class="header-brand">
+        <div class="header-logo">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
         </div>
-        <div>
-          <h1>FOCUS</h1>
-          <span class="role-tag">Parent Command Center</span>
+        <div class="header-title-box">
+          <span class="header-title">FOCUS</span>
+          <span class="header-subtitle">Parent Command Center</span>
         </div>
       </div>
-      <div class="status-container">
+      <div class="header-actions">
         <div class="status-pill online" id="status-pill">
           <span class="dot"></span>
           <span id="status-text">Connected</span>
         </div>
-        <button id="cloud-cfg-btn" class="btn-icon" title="Cloud Setup">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        <button id="cloud-cfg-btn" class="btn-icon" title="Cloud Setup" aria-label="Cloud Setup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
           </svg>
         </button>
-        <button id="logout-btn" class="btn-icon" title="Lock Dashboard">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        <button id="logout-btn" class="btn-icon" title="Lock Dashboard" aria-label="Lock Dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -120,88 +120,142 @@
     </header>
 
     <main class="content-grid">
-      <!-- 1. System Power Actions -->
-      <section class="card power-card">
+      <!-- 1. Live PC Surveillance Card -->
+      <section class="card" id="sec-surveillance">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-sapphire);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-primary);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <h3>Workstation Monitor</h3>
+          </div>
+          <button id="refresh-screen-btn" class="btn btn-sm btn-secondary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            Screenshot
+          </button>
+        </div>
+
+        <div class="monitor-info-box">
+          <div class="info-row">
+            <span class="info-label">Active App:</span>
+            <span class="info-value highlight" id="active-app-name">Polling status...</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Window Title:</span>
+            <span class="info-value" id="active-window-title">Idle</span>
+          </div>
+        </div>
+
+        <!-- Screenshot Preview Container -->
+        <div id="screenshot-container" class="screenshot-wrap" style="display: none;">
+          <img id="screenshot-img" alt="Workstation Viewport Stream">
+        </div>
+      </section>
+
+      <!-- 2. System Hardware & Power Actions -->
+      <section class="card" id="sec-power">
+        <div class="card-header">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-secondary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
             </div>
-            Hardware Power & Session
-          </h3>
+            <h3>Power & Hardware</h3>
+          </div>
           <span class="badge">Win32 Native</span>
         </div>
-        <div class="action-grid">
-          <button class="btn btn-action" data-action="lock" id="btn-lock">
-            <div class="btn-icon-large">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        <div class="power-grid">
+          <button class="btn-power" data-action="lock" id="btn-lock">
+            <div class="btn-power-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
-            <span class="btn-label">Lock PC</span>
+            <div class="btn-power-text">
+              <span class="btn-power-title">Lock PC</span>
+              <span class="btn-power-sub">Lock screen</span>
+            </div>
           </button>
-          <button class="btn btn-action" data-action="signout" id="btn-signout">
-            <div class="btn-icon-large">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+
+          <button class="btn-power" data-action="logout" id="btn-logout">
+            <div class="btn-power-icon" style="color: var(--accent-tertiary);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             </div>
-            <span class="btn-label">Sign Out</span>
+            <div class="btn-power-text">
+              <span class="btn-power-title">Sign Out</span>
+              <span class="btn-power-sub">End session</span>
+            </div>
           </button>
-          <button class="btn btn-action" data-action="restart" id="btn-restart">
-            <div class="btn-icon-large">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+
+          <button class="btn-power" data-action="restart" id="btn-restart">
+            <div class="btn-power-icon" style="color: var(--accent-primary);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10" />
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
               </svg>
             </div>
-            <span class="btn-label">Restart</span>
+            <div class="btn-power-text">
+              <span class="btn-power-title">Restart</span>
+              <span class="btn-power-sub">Reboot OS</span>
+            </div>
           </button>
-          <button class="btn btn-action btn-danger" data-action="shutdown" id="btn-shutdown">
-            <div class="btn-icon-large">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+
+          <button class="btn-power btn-power-danger" data-action="shutdown" id="btn-shutdown">
+            <div class="btn-power-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
                 <line x1="12" y1="2" x2="12" y2="12" />
               </svg>
             </div>
-            <span class="btn-label">Shutdown</span>
+            <div class="btn-power-text">
+              <span class="btn-power-title" style="color: var(--accent-danger);">Shutdown</span>
+              <span class="btn-power-sub">Power off</span>
+            </div>
           </button>
         </div>
       </section>
 
-      <!-- 2. Focus Mode & Keyboard Lock -->
-      <section class="card">
+      <!-- 3. Focus Mode & Keyboard Lock -->
+      <section class="card" id="sec-focus">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-indigo);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-primary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="6" />
-                <circle cx="12" cy="12" r="2" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
-            Focus Protocol & Input Guard
-          </h3>
-          <span class="badge badge-primary" id="focus-status-badge">Standby</span>
+            <h3>Focus Mode & Session</h3>
+          </div>
+          <span class="badge" id="focus-status-badge">Standby (All Limits OFF)</span>
         </div>
 
-        <!-- Focus Mode Toggle -->
+        <!-- Master Switch -->
         <div class="control-row">
           <div class="control-info">
-            <h4>Strict Focus Mode</h4>
-            <p><strong>OFF:</strong> Standard operation.<br><strong>ON:</strong> Restricts unapproved tasks &
-              distractors.</p>
+            <h4>Strict Study Focus</h4>
+            <p>Enforces website & YouTube channel filters</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-focus">
@@ -209,13 +263,13 @@
           </label>
         </div>
 
-        <!-- Duration Selector -->
-        <div class="duration-selector" id="duration-selector-wrap">
-          <label>Lockout Duration:</label>
-          <div class="duration-chips">
-            <button class="chip active" data-mins="0">Unlimited</button>
+        <!-- Session Duration Chips -->
+        <div class="duration-selector">
+          <label>Focus Timer Duration</label>
+          <div class="chip-row">
             <button class="chip" data-mins="15">15m</button>
             <button class="chip" data-mins="30">30m</button>
+            <button class="chip" data-mins="45">45m</button>
             <button class="chip" data-mins="60">1h</button>
             <button class="chip" data-mins="120">2h</button>
           </div>
@@ -227,7 +281,7 @@
         <div class="control-row">
           <div class="control-info">
             <h4>Hardware Keyboard Lock</h4>
-            <p>Suppresses physical typing via low-level hook (Bypass: Ctrl+Alt+Shift+P)</p>
+            <p>Suppresses typing (Emergency bypass: Ctrl+Alt+Shift+P)</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="toggle-keylock">
@@ -236,11 +290,11 @@
         </div>
       </section>
 
-      <!-- 3. Browser Tab Limiter -->
-      <section class="card">
+      <!-- 4. Browser Tab Limiter -->
+      <section class="card" id="sec-tabs">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-amber);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-tertiary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -250,14 +304,13 @@
                 <polyline points="10 9 9 9 8 9" />
               </svg>
             </div>
-            Browser Concurrency Limiter
-          </h3>
+            <h3>Browser Tab Limiter</h3>
+          </div>
           <span class="badge badge-accent" id="tab-count-badge">1 Tab Max</span>
         </div>
-        <p class="section-desc">Enforced in Chrome & Edge. Newly opened tabs exceeding this limit are terminated
-          instantly.</p>
+        <p class="section-desc">Active in Chrome & Edge. Excess tabs beyond limit are closed automatically.</p>
 
-        <!-- Configurable Slider Bounds (Min and Max range) -->
+        <!-- Configurable Slider Bounds -->
         <div class="tab-bounds-row">
           <div class="tab-bound-box">
             <label for="cfg-min-tabs">Min Tabs (Focus Default)</label>
@@ -287,100 +340,66 @@
         </div>
       </section>
 
-      <!-- 4. Live PC Monitor & Screen -->
-      <section class="card">
-        <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-emerald);">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            Surveillance & Workstation Stream
-          </h3>
-          <button id="refresh-screen-btn" class="btn btn-sm btn-secondary">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            Screenshot
-          </button>
-        </div>
-
-        <div class="monitor-info-box">
-          <div class="info-row">
-            <span class="info-label">Active App:</span>
-            <span class="info-value highlight" id="active-app-name">Polling status...</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Window Title:</span>
-            <span class="info-value" id="active-window-title">Idle</span>
-          </div>
-        </div>
-
-        <!-- Screenshot Preview Container -->
-        <div id="screenshot-container" class="screenshot-wrap" style="display: none;">
-          <img id="screenshot-img" alt="Workstation Viewport Stream">
-        </div>
-      </section>
-
       <!-- 5. Access Requests & Notifications -->
       <section class="card full-width" id="section-access-requests">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-emerald);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-tertiary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
             </div>
-            Access Requests & Notifications
-          </h3>
+            <h3>Access Requests & Notifications</h3>
+          </div>
           <span class="badge badge-primary" id="pending-requests-badge">0 Pending</span>
         </div>
-        <p class="section-desc">Study access requests submitted from your brother's PC. Approve to whitelist instantly,
-          reject to dismiss, or view to inspect content first.</p>
+        <p class="section-desc">Study access requests submitted from workstation. Tap Allow to whitelist instantly,
+          Reject to dismiss, or View to inspect URL.</p>
 
         <div id="requests-list-container" class="requests-well">
-          <div class="no-requests-msg" id="no-requests-placeholder">No pending access requests. System is operating
-            normally.</div>
+          <div class="no-requests-msg" id="no-requests-placeholder">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+            No pending access requests. System is operating normally.
+          </div>
         </div>
       </section>
 
-      <!-- 6. Whitelist Management -->
-      <section class="card full-width">
+      <!-- 6. Whitelist Governance Tray -->
+      <section class="card full-width" id="sec-whitelists">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-violet);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-primary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
-            Whitelist Governance Tray
-          </h3>
+            <h3>Whitelist Governance</h3>
+          </div>
           <span class="badge">Policy Sync</span>
         </div>
 
         <div class="whitelist-tabs">
           <button class="tab-btn active" data-tab="sites">
             <span
-              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-emerald); margin-right:4px;"></span>
+              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-primary); margin-right:6px;"></span>
             Allowed Websites
           </button>
           <button class="tab-btn" data-tab="channels">
             <span
-              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-coral); margin-right:4px;"></span>
+              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-danger); margin-right:6px;"></span>
             YouTube Channels
           </button>
           <button class="tab-btn" data-tab="videos">
             <span
-              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-sapphire); margin-right:4px;"></span>
+              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-secondary); margin-right:6px;"></span>
             Allowed Videos
           </button>
         </div>
@@ -413,43 +432,81 @@
         </div>
       </section>
 
-      <!-- 6. Remote App Maintenance & GitHub Sync -->
-      <section class="card full-width">
+      <!-- 7. Remote Maintenance & GitHub Code Sync -->
+      <section class="card full-width" id="sec-maintenance">
         <div class="card-header">
-          <h3>
-            <div class="card-header-icon" style="color: var(--accent-sky);">
+          <div class="card-header-title">
+            <div class="card-header-icon" style="color: var(--accent-secondary);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="16 18 22 12 16 6" />
                 <polyline points="8 6 2 12 8 18" />
               </svg>
             </div>
-            Remote Maintenance & Code Sync
-          </h3>
+            <h3>Remote Maintenance & Engine Sync</h3>
+          </div>
+          <span class="badge" id="update-status-badge">Standby</span>
         </div>
         <p class="section-desc">
-          Pulls latest updates, bug fixes, and security patches from GitHub origin main directly onto the workstation.
-          The background sentinel watchdog automatically resurrects the service with zero physical intervention
-          required.
+          Downloads latest code and patches from GitHub directly onto your brother's PC. The background sentinel watchdog
+          automatically resurrects the service with zero manual intervention.
         </p>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button id="btn-remote-update" class="btn btn-primary">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10" />
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-              <span id="btn-remote-update-text">Sync & Update from GitHub</span>
-            </button>
-            <span id="update-status-badge" class="badge" style="display: none;"></span>
-          </div>
-          <div id="update-output-box"
-            style="display: none; background: var(--bg-well-deep); box-shadow: var(--neu-recessed); border: 1px solid var(--border-rim); border-radius: var(--radius-md); padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-emerald); white-space: pre-wrap; max-height: 160px; overflow-y: auto;">
-          </div>
-        </div>
+        <button id="btn-remote-update" class="btn btn-secondary" style="align-self: flex-start;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+            </path>
+          </svg>
+          <span id="btn-remote-update-text">Update FOCUS from GitHub</span>
+        </button>
+        <div id="update-output-box" class="update-output-box" style="display: none;"></div>
       </section>
     </main>
+
+    <!-- Mobile Sticky Bottom Navigation Dock -->
+    <nav class="bottom-nav">
+      <a href="#sec-surveillance" class="nav-item active" id="nav-item-surveillance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span>Monitor</span>
+      </a>
+      <a href="#sec-power" class="nav-item" id="nav-item-power">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>Power</span>
+      </a>
+      <a href="#sec-focus" class="nav-item" id="nav-item-focus">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Focus</span>
+      </a>
+      <a href="#section-access-requests" class="nav-item" id="nav-item-requests">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span>Requests</span>
+      </a>
+      <a href="#sec-whitelists" class="nav-item" id="nav-item-whitelists">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <span>Whitelists</span>
+      </a>
+    </nav>
   </div>
 
   <script src="app.js"></script>
