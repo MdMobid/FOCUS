@@ -173,14 +173,16 @@ class FirebaseCloudBridge:
         # Handle screenshot capture for remote parent
         if action == "screenshot":
             try:
-                from web_server import capture_screen_bmp_bytes
-                bmp = capture_screen_bmp_bytes()
-                if bmp:
-                    b64 = base64.b64encode(bmp).decode("ascii")
+                from web_server import capture_screen_bytes
+                img_bytes, mime = capture_screen_bytes()
+                if img_bytes:
+                    b64 = base64.b64encode(img_bytes).decode("ascii")
                     self.push_data("/focus/screenshot.json", {
-                        "image": f"data:image/bmp;base64,{b64}",
+                        "image": f"data:{mime};base64,{b64}",
+                        "cmd_id": cmd_id or "",
                         "timestamp": time.time()
                     })
+                    print(f"[FOCUS Cloud] Screenshot captured and published ({len(img_bytes)} bytes, {mime}).")
                     success = True
             except Exception as e:
                 print(f"[FOCUS Cloud] Screenshot capture failed: {e}", file=sys.stderr)

@@ -95,7 +95,7 @@ saveCloudBtn?.addEventListener("click", () => {
 });
 
 async function sendAction(action, extraPayload = {}) {
-  const cmdId = "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+  const cmdId = extraPayload.id || ("cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9));
   const payload = { id: cmdId, action, timestamp: Date.now(), ...extraPayload };
   console.log("[FOCUS Dashboard] Dispatching action:", action, payload);
   if (fbUrl) {
@@ -433,22 +433,27 @@ refreshScreenBtn.addEventListener("click", async () => {
   refreshScreenBtn.textContent = "Capturing...";
   try {
     if (fbUrl) {
-      const requestTimestamp = (Date.now() / 1000) - 2;
-      await sendAction("screenshot");
+      const cmdId = "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+      const requestTimestamp = (Date.now() / 1000) - 15;
+      await sendAction("screenshot", { id: cmdId });
       const cleanUrl = fbUrl.replace(/\/$/, "");
 
       let captured = false;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 15; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
           const res = await fetch(`${cleanUrl}/focus/screenshot.json?auth=${fbSecret}`);
           if (res.ok) {
             const data = await res.json();
-            if (data && data.image && (Number(data.timestamp || 0) >= requestTimestamp)) {
-              screenshotImg.src = data.image;
-              screenshotContainer.style.display = "block";
-              captured = true;
-              break;
+            if (data && data.image) {
+              const matchCmd = data.cmd_id && data.cmd_id === cmdId;
+              const matchTime = Number(data.timestamp || 0) >= requestTimestamp;
+              if (matchCmd || matchTime) {
+                screenshotImg.src = data.image;
+                screenshotContainer.style.display = "block";
+                captured = true;
+                break;
+              }
             }
           }
         } catch (pollErr) { }

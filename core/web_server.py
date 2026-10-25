@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
@@ -34,31 +34,91 @@ def generate_session_token(pin: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def capture_screen_bmp_bytes() -> Optional[bytes]:
-    """
-    Captures the primary monitor using native Win32 GDI APIs (pure ctypes).
-    Returns raw BMP bytes without requiring PIL or any external library.
-    """
+def _capture_gdiplus_jpeg() -> Optional[bytes]:
+    """Captures screen as lightweight JPEG (15-40KB) via native Windows GDI+."""
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalSize.restype = ctypes.c_size_t
+        kernel32.GlobalSize.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+
+        ole32 = ctypes.windll.ole32
+        gdiplus = ctypes.windll.gdiplus
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+
+        class GdiplusStartupInput(ctypes.Structure):
+            _fields_ = [('GdiplusVersion', wintypes.UINT),
+                        ('DebugEventCallback', ctypes.c_void_p),
+                        ('SuppressBackgroundThread', wintypes.BOOL),
+                        ('SuppressExternalCodecs', wintypes.BOOL)]
+
+        token = ctypes.c_ulong()
+        startup_in = GdiplusStartupInput(1, None, False, False)
+        if gdiplus.GdiplusStartup(ctypes.byref(token), ctypes.byref(startup_in), None) != 0:
+            return None
+
+        w = user32.GetSystemMetrics(0)
+        h = user32.GetSystemMetrics(1)
+        hdesk = user32.GetDesktopWindow()
+        desk_dc = user32.GetWindowDC(hdesk)
+        mem_dc = gdi32.CreateCompatibleDC(desk_dc)
+        hbm = gdi32.CreateCompatibleBitmap(desk_dc, w, h)
+        gdi32.SelectObject(mem_dc, hbm)
+        gdi32.BitBlt(mem_dc, 0, 0, w, h, desk_dc, 0, 0, 0x00CC0020)
+
+        gp_bitmap = ctypes.c_void_p()
+        gdiplus.GdipCreateBitmapFromHBITMAP(hbm, 0, ctypes.byref(gp_bitmap))
+
+        class GUID(ctypes.Structure):
+            _fields_ = [('Data1', wintypes.DWORD),
+                        ('Data2', wintypes.WORD),
+                        ('Data3', wintypes.WORD),
+                        ('Data4', ctypes.c_ubyte * 8)]
+
+        # CLSID for GDI+ JPEG Encoder: {557cf401-1a04-11d3-9a73-0000f81ef32e}
+        jpeg_clsid = GUID(0x557cf401, 0x1a04, 0x11d3, (ctypes.c_ubyte * 8)(0x9a, 0x73, 0x00, 0x00, 0xf8, 0x1e, 0xf3, 0x2e))
+
+        p_stream = ctypes.c_void_p()
+        ole32.CreateStreamOnHGlobal(None, True, ctypes.byref(p_stream))
+
+        jpeg_bytes = None
+        if gdiplus.GdipSaveImageToStream(gp_bitmap, p_stream, ctypes.byref(jpeg_clsid), None) == 0:
+            hglobal = ctypes.c_void_p()
+            ole32.GetHGlobalFromStream(p_stream, ctypes.byref(hglobal))
+            size = kernel32.GlobalSize(hglobal)
+            ptr = kernel32.GlobalLock(hglobal)
+            if ptr:
+                jpeg_bytes = ctypes.string_at(ptr, size)
+                kernel32.GlobalUnlock(hglobal)
+
+        gdiplus.GdipDisposeImage(gp_bitmap)
+        gdi32.DeleteObject(hbm)
+        gdi32.DeleteDC(mem_dc)
+        user32.ReleaseDC(hdesk, desk_dc)
+        gdiplus.GdiplusShutdown(token)
+        return jpeg_bytes
+    except Exception:
+        return None
+
+
+def _capture_gdi_bmp() -> Optional[bytes]:
+    """Captures the primary monitor using native Win32 GDI APIs (pure ctypes) as raw BMP."""
     try:
         user32 = ctypes.windll.user32
         gdi32 = ctypes.windll.gdi32
 
-        # Get screen dimensions
-        SM_CXSCREEN = 0
-        SM_CYSCREEN = 1
-        width = user32.GetSystemMetrics(SM_CXSCREEN)
-        height = user32.GetSystemMetrics(SM_CYSCREEN)
-
+        w = user32.GetSystemMetrics(0)
+        h = user32.GetSystemMetrics(1)
         hdesktop = user32.GetDesktopWindow()
         desktop_dc = user32.GetWindowDC(hdesktop)
         memory_dc = gdi32.CreateCompatibleDC(desktop_dc)
 
-        bitmap = gdi32.CreateCompatibleBitmap(desktop_dc, width, height)
+        bitmap = gdi32.CreateCompatibleBitmap(desktop_dc, w, h)
         gdi32.SelectObject(memory_dc, bitmap)
-
-        # BitBlt screen into memory DC
-        SRCCOPY = 0x00CC0020
-        gdi32.BitBlt(memory_dc, 0, 0, width, height, desktop_dc, 0, 0, SRCCOPY)
+        gdi32.BitBlt(memory_dc, 0, 0, w, h, desktop_dc, 0, 0, 0x00CC0020)
 
         class BITMAPINFOHEADER(ctypes.Structure):
             _fields_ = [
@@ -77,36 +137,49 @@ def capture_screen_bmp_bytes() -> Optional[bytes]:
 
         bmi = BITMAPINFOHEADER()
         bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-        bmi.biWidth = width
-        bmi.biHeight = height
+        bmi.biWidth = w
+        bmi.biHeight = h
         bmi.biPlanes = 1
         bmi.biBitCount = 24
-        bmi.biCompression = 0  # BI_RGB
+        bmi.biCompression = 0
 
-        row_size = ((width * 24 + 31) // 32) * 4
-        image_size = row_size * height
+        row_size = ((w * 24 + 31) // 32) * 4
+        image_size = row_size * h
         buffer = (ctypes.c_char * image_size)()
 
-        gdi32.GetDIBits(memory_dc, bitmap, 0, height, ctypes.byref(buffer), ctypes.byref(bmi), 0)
+        gdi32.GetDIBits(memory_dc, bitmap, 0, h, ctypes.byref(buffer), ctypes.byref(bmi), 0)
 
-        # Build BMP File Header
         file_header_size = 14
         total_file_size = file_header_size + bmi.biSize + image_size
         bfType = b"BM"
         bfReserved = b"\x00\x00\x00\x00"
         bfOffBits = (file_header_size + bmi.biSize).to_bytes(4, byteorder="little")
         header = bfType + total_file_size.to_bytes(4, byteorder="little") + bfReserved + bfOffBits
-        info_header = bytes(bmi)
 
-        # Clean up GDI objects
         gdi32.DeleteObject(bitmap)
         gdi32.DeleteDC(memory_dc)
         user32.ReleaseDC(hdesktop, desktop_dc)
 
-        return header + info_header + bytes(buffer)
+        return header + bytes(bmi) + bytes(buffer)
     except Exception as exc:
         print(f"[FOCUS Screenshot] GDI capture failed: {exc}", file=sys.stderr)
         return None
+
+
+def capture_screen_bytes() -> Tuple[Optional[bytes], str]:
+    """Returns (image_bytes, mime_type). Prefers compressed JPEG (~20KB), falls back to BMP."""
+    jpeg = _capture_gdiplus_jpeg()
+    if jpeg:
+        return jpeg, "image/jpeg"
+    bmp = _capture_gdi_bmp()
+    if bmp:
+        return bmp, "image/bmp"
+    return None, "image/jpeg"
+
+
+def capture_screen_bmp_bytes() -> Optional[bytes]:
+    """Backward compatibility helper."""
+    return capture_screen_bytes()[0]
 
 
 class FocusRequestHandler(BaseHTTPRequestHandler):
@@ -178,13 +251,13 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
             if not self._is_authenticated():
                 self._send_json(401, {"error": "Unauthorized"})
                 return
-            bmp_bytes = capture_screen_bmp_bytes()
-            if bmp_bytes:
+            img_bytes, mime = capture_screen_bytes()
+            if img_bytes:
                 self.send_response(200)
-                self.send_header("Content-Type", "image/bmp")
-                self.send_header("Content-Length", str(len(bmp_bytes)))
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(img_bytes)))
                 self.end_headers()
-                self.wfile.write(bmp_bytes)
+                self.wfile.write(img_bytes)
             else:
                 self._send_json(500, {"error": "Failed to capture screen"})
             return
