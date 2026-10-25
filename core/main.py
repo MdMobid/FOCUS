@@ -101,14 +101,14 @@ class MainCoordinator:
             return True
 
         elif action == "update_app":
-            res = self.handle_remote_update()
+            res = self.handle_remote_update(payload.get("id", ""))
             return res.get("success", False)
 
         return False
 
-    def handle_remote_update(self) -> Dict[str, Any]:
+    def handle_remote_update(self, cmd_id: str = "") -> Dict[str, Any]:
         """Pulls latest commits from GitHub origin main and resurrects via watchdog."""
-        print("[FOCUS Coordinator] Remote app update initiated from Parent Web Dashboard...")
+        print(f"[FOCUS Coordinator] Remote app update initiated (cmd_id: {cmd_id or 'none'})...")
         project_dir = os.path.dirname(SCRIPT_DIR)
         try:
             res = subprocess.run(
@@ -116,9 +116,15 @@ class MainCoordinator:
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
+                shell=(os.name == 'nt'),
                 timeout=60
             )
-            output = (res.stdout + "\n" + res.stderr).strip()
+            stdout = (res.stdout or "").strip()
+            stderr = (res.stderr or "").strip()
+            output = (stdout + "\n" + stderr).strip()
+            if not output:
+                output = f"Git completed with code {res.returncode}"
+
             is_success = (res.returncode == 0)
             has_updates = "Already up to date" not in output and is_success
 
@@ -126,6 +132,7 @@ class MainCoordinator:
                 "success": is_success,
                 "has_updates": has_updates,
                 "output": output,
+                "cmd_id": cmd_id,
                 "timestamp": time.time()
             }
 
@@ -147,6 +154,7 @@ class MainCoordinator:
                 "success": False,
                 "has_updates": False,
                 "output": f"Update failed: {str(exc)}",
+                "cmd_id": cmd_id,
                 "timestamp": time.time()
             }
             if hasattr(self, 'cloud_bridge') and self.cloud_bridge:

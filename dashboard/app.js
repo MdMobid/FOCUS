@@ -702,12 +702,14 @@ btnRemoteUpdate?.addEventListener("click", async () => {
   updateOutputBox.style.display = "none";
   updateOutputBox.textContent = "";
 
-  try {
-    await sendAction("update_app");
+  const cmdId = "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
-    // Poll for update result (up to 20 seconds)
+  try {
+    await sendAction("update_app", { id: cmdId });
+
+    // Poll for update result (up to 30 seconds)
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 15;
     const checkUpdate = async () => {
       attempts++;
       let status = null;
@@ -720,7 +722,10 @@ btnRemoteUpdate?.addEventListener("click", async () => {
         }
       }
 
-      if (status && (Date.now() / 1000 - status.timestamp < 30 || attempts >= maxAttempts)) {
+      // Check if status belongs to current command or was produced within last 30s
+      const isCurrent = status && (status.cmd_id === cmdId || (status.timestamp && (Date.now() / 1000 - status.timestamp < 30)));
+
+      if (status && isCurrent) {
         if (status.success) {
           if (status.has_updates) {
             updateStatusBadge.className = "badge badge-primary";
@@ -749,11 +754,12 @@ btnRemoteUpdate?.addEventListener("click", async () => {
       } else {
         btnRemoteUpdate.disabled = false;
         btnRemoteUpdateText.textContent = "Sync & Update App from GitHub";
-        updateStatusBadge.textContent = "Request Sent";
+        updateStatusBadge.className = "badge";
+        updateStatusBadge.textContent = "ℹ️ Request Sent";
       }
     };
 
-    setTimeout(checkUpdate, 2500);
+    setTimeout(checkUpdate, 2000);
   } catch (err) {
     alert("Failed to send update request: " + err.message);
     btnRemoteUpdate.disabled = false;
