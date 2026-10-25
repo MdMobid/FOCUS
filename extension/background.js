@@ -4,20 +4,16 @@
  */
 
 const DEFAULT_RULES = {
-  max_tabs: 5,
+  max_tabs: 1,
+  min_tabs: 1,
+  max_tabs_range: 15,
   allowed_sites: [
-    "khanacademy.org",
     "wikipedia.org",
     "youtube.com",
     "github.com",
     "google.com"
   ],
-  allowed_channels: [
-    "@freecodecamp",
-    "@khanacademy",
-    "@veritasium",
-    "@3blue1brown"
-  ]
+  allowed_channels: []
 };
 
 // Initialize rules in local storage
@@ -75,7 +71,7 @@ chrome.tabs.onCreated.addListener((newTab) => {
     // When Focus Mode is OFF: all tab limits are removed (open any number of tabs)
     if (!rules.focus_mode) return;
 
-    const maxTabs = rules.max_tabs || 5;
+    const maxTabs = (typeof rules.max_tabs === "number" && rules.max_tabs >= 1) ? rules.max_tabs : 1;
 
     // Count all active tabs across all windows
     chrome.tabs.query({}, (tabs) => {

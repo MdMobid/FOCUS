@@ -252,18 +252,38 @@
             </div>
             Browser Concurrency Limiter
           </h3>
-          <span class="badge badge-accent" id="tab-count-badge">5 Tabs Max</span>
+          <span class="badge badge-accent" id="tab-count-badge">1 Tab Max</span>
         </div>
         <p class="section-desc">Enforced in Chrome & Edge. Newly opened tabs exceeding this limit are terminated
           instantly.</p>
 
+        <!-- Configurable Slider Bounds (Min and Max range) -->
+        <div class="tab-bounds-row">
+          <div class="tab-bound-box">
+            <label for="cfg-min-tabs">Min Tabs (Focus Default)</label>
+            <div class="stepper-wrap">
+              <button class="btn-stepper" id="btn-dec-min-tabs" type="button" title="Decrease minimum tabs">−</button>
+              <input type="number" id="cfg-min-tabs" min="1" max="30" value="1" step="1">
+              <button class="btn-stepper" id="btn-inc-min-tabs" type="button" title="Increase minimum tabs">+</button>
+            </div>
+          </div>
+          <div class="tab-bound-box">
+            <label for="cfg-max-tabs-range">Max Range Slider</label>
+            <div class="stepper-wrap">
+              <button class="btn-stepper" id="btn-dec-max-tabs" type="button" title="Decrease maximum range">−</button>
+              <input type="number" id="cfg-max-tabs-range" min="1" max="50" value="15" step="1">
+              <button class="btn-stepper" id="btn-inc-max-tabs" type="button" title="Increase maximum range">+</button>
+            </div>
+          </div>
+        </div>
+
         <div class="tab-slider-wrap">
           <div class="slider-labels">
-            <span>1 Tab (Strict)</span>
-            <span id="tab-slider-val">5 Tabs</span>
-            <span>15 Tabs</span>
+            <span id="tab-slider-min-label">1 Tab (Min)</span>
+            <span id="tab-slider-val">1 Tab</span>
+            <span id="tab-slider-max-label">15 Tabs (Max)</span>
           </div>
-          <input type="range" id="tab-slider" min="1" max="15" value="5" step="1">
+          <input type="range" id="tab-slider" min="1" max="15" value="1" step="1">
         </div>
       </section>
 

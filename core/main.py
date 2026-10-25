@@ -88,13 +88,43 @@ class MainCoordinator:
             else:
                 self.config.set("focus_expires_at", 0)
 
+            # When Strict Focus Mode turns ON, default max tabs to configured min_tabs
+            if enabled:
+                min_tabs = int(self.config.get("min_tabs", 1))
+                self.config.set("max_tabs", min_tabs)
+                if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                    try:
+                        self.cloud_bridge.push_data("/focus/status/max_tabs.json", min_tabs)
+                    except Exception:
+                        pass
+
             # Enforce Task Manager lockdown during Focus Mode
             set_task_manager_disabled(enabled)
             return True
 
         elif action == "set_tabs":
-            max_tabs = int(payload.get("max_tabs", 5))
-            self.config.set("max_tabs", max_tabs)
+            min_tabs = int(self.config.get("min_tabs", 1))
+            max_range = int(self.config.get("max_tabs_range", 15))
+            max_tabs = int(payload.get("max_tabs", min_tabs))
+            clamped = max(min_tabs, min(max_tabs, max_range))
+            self.config.set("max_tabs", clamped)
+            return True
+
+        elif action == "set_tab_range":
+            min_tabs = max(1, int(payload.get("min_tabs", 1)))
+            max_range = max(min_tabs, int(payload.get("max_tabs_range", 15)))
+            self.config.set("min_tabs", min_tabs)
+            self.config.set("max_tabs_range", max_range)
+            current_max = int(self.config.get("max_tabs", min_tabs))
+            clamped = max(min_tabs, min(current_max, max_range))
+            self.config.set("max_tabs", clamped)
+            if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                try:
+                    self.cloud_bridge.push_data("/focus/status/min_tabs.json", min_tabs)
+                    self.cloud_bridge.push_data("/focus/status/max_tabs_range.json", max_range)
+                    self.cloud_bridge.push_data("/focus/status/max_tabs.json", clamped)
+                except Exception:
+                    pass
             return True
 
         elif action == "screenshot":
@@ -350,7 +380,9 @@ class MainCoordinator:
             "focus_mode": self.config.get("focus_mode", False),
             "focus_expires_at": self.config.get("focus_expires_at", 0),
             "keyboard_locked": self.config.get("keyboard_locked", False),
-            "max_tabs": self.config.get("max_tabs", 5),
+            "max_tabs": self.config.get("max_tabs", 1),
+            "min_tabs": self.config.get("min_tabs", 1),
+            "max_tabs_range": self.config.get("max_tabs_range", 15),
             "active_window": get_active_window_info(),
             "pending_requests_count": sum(1 for r in requests if r.get("status") == "pending"),
             "requests": requests[:20],

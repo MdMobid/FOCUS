@@ -59,7 +59,7 @@ class ConfigManager:
         elif key == "keyboard_locked":
             val = self.db.get_setting("keyboard_locked")
             return val == "1" if val is not None else default
-        elif key in ("focus_expires_at", "server_port", "max_tabs"):
+        elif key in ("focus_expires_at", "server_port", "max_tabs", "min_tabs", "max_tabs_range"):
             val = self.db.get_setting(key)
             if val is not None:
                 try:

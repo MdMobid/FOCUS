@@ -46,6 +46,14 @@ const toggleKeylock = document.getElementById("toggle-keylock");
 const tabSlider = document.getElementById("tab-slider");
 const tabSliderVal = document.getElementById("tab-slider-val");
 const tabCountBadge = document.getElementById("tab-count-badge");
+const cfgMinTabs = document.getElementById("cfg-min-tabs");
+const cfgMaxTabsRange = document.getElementById("cfg-max-tabs-range");
+const btnDecMinTabs = document.getElementById("btn-dec-min-tabs");
+const btnIncMinTabs = document.getElementById("btn-inc-min-tabs");
+const btnDecMaxTabs = document.getElementById("btn-dec-max-tabs");
+const btnIncMaxTabs = document.getElementById("btn-inc-max-tabs");
+const tabSliderMinLabel = document.getElementById("tab-slider-min-label");
+const tabSliderMaxLabel = document.getElementById("tab-slider-max-label");
 
 const activeAppName = document.getElementById("active-app-name");
 const activeWindowTitle = document.getElementById("active-window-title");
@@ -127,6 +135,14 @@ async function sendAction(action, extraPayload = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(expiresAt),
         });
+        if (extraPayload.enabled) {
+          const minT = parseInt(cfgMinTabs?.value || "1", 10);
+          await fetch(`${cleanUrl}/focus/status/max_tabs.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(minT),
+          });
+        }
       } else if (action === "keylock") {
         await fetch(`${cleanUrl}/focus/status/keyboard_locked.json?auth=${fbSecret}`, {
           method: "PUT",
@@ -139,6 +155,24 @@ async function sendAction(action, extraPayload = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(extraPayload.max_tabs),
         });
+      } else if (action === "set_tab_range") {
+        await fetch(`${cleanUrl}/focus/status/min_tabs.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.min_tabs),
+        });
+        await fetch(`${cleanUrl}/focus/status/max_tabs_range.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.max_tabs_range),
+        });
+        if (extraPayload.max_tabs !== undefined) {
+          await fetch(`${cleanUrl}/focus/status/max_tabs.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(extraPayload.max_tabs),
+          });
+        }
       }
     } catch (e) { }
   } else {
@@ -360,11 +394,22 @@ async function pollStatus() {
       activeWindowTitle.title = winTitle; // Full title available on hover
     }
 
-    // Tab Limit
+    // Tab Limits & Range Bounds
+    if (data.min_tabs !== undefined && data.max_tabs_range !== undefined) {
+      const minVal = parseInt(data.min_tabs, 10);
+      const maxRangeVal = parseInt(data.max_tabs_range, 10);
+      if (cfgMinTabs && cfgMaxTabsRange && !cfgMinTabs.matches(":focus") && !cfgMaxTabsRange.matches(":focus")) {
+        if (parseInt(cfgMinTabs.value, 10) !== minVal || parseInt(cfgMaxTabsRange.value, 10) !== maxRangeVal) {
+          updateTabRange(minVal, maxRangeVal, false);
+        }
+      }
+    }
+
     if (data.max_tabs !== undefined && !tabSlider.matches(":active")) {
-      tabSlider.value = data.max_tabs;
-      tabSliderVal.textContent = `${data.max_tabs} Tabs`;
-      tabCountBadge.textContent = `${data.max_tabs} Tabs Max`;
+      const val = parseInt(data.max_tabs, 10);
+      tabSlider.value = val;
+      tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
+      tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
     }
 
     // Update Access Requests
@@ -406,12 +451,20 @@ toggleFocus.addEventListener("change", async () => {
   if (enabled) {
     focusStatusBadge.textContent = selectedDurationMins > 0 ? `Active (${selectedDurationMins}m)` : "Active (Unlimited)";
     focusStatusBadge.className = "badge badge-primary";
+
+    // Set max tabs to configured minimum tabs automatically when Strict Focus Mode is ON
+    const minTabs = parseInt(cfgMinTabs?.value || "1", 10);
+    tabSlider.value = minTabs;
+    tabSliderVal.textContent = minTabs === 1 ? "1 Tab" : `${minTabs} Tabs`;
+    tabCountBadge.textContent = `${minTabs} ${minTabs === 1 ? 'Tab' : 'Tabs'} Max`;
+
+    await sendAction("focus", { enabled, duration_mins: selectedDurationMins });
+    await sendAction("set_tabs", { max_tabs: minTabs });
   } else {
     focusStatusBadge.textContent = "Standby (All Limits OFF)";
     focusStatusBadge.className = "badge";
+    await sendAction("focus", { enabled, duration_mins: selectedDurationMins });
   }
-
-  await sendAction("focus", { enabled, duration_mins: selectedDurationMins });
 });
 
 // Duration Chips
@@ -435,16 +488,84 @@ toggleKeylock.addEventListener("change", async () => {
   await sendAction("keylock", { enabled });
 });
 
-// --- 6. Tab Limiter Slider ---
+// --- 6. Tab Limiter Slider & Configurable Range Bounds ---
+function updateTabRange(minVal, maxRangeVal, shouldDispatch = true) {
+  minVal = Math.max(1, parseInt(minVal || "1", 10));
+  maxRangeVal = Math.max(minVal, parseInt(maxRangeVal || "15", 10));
+
+  if (cfgMinTabs) cfgMinTabs.value = minVal;
+  if (cfgMaxTabsRange) cfgMaxTabsRange.value = maxRangeVal;
+
+  if (tabSlider) {
+    tabSlider.min = minVal;
+    tabSlider.max = maxRangeVal;
+
+    let currVal = parseInt(tabSlider.value || minVal, 10);
+    if (currVal < minVal) currVal = minVal;
+    if (currVal > maxRangeVal) currVal = maxRangeVal;
+    tabSlider.value = currVal;
+
+    if (tabSliderVal) tabSliderVal.textContent = currVal === 1 ? "1 Tab" : `${currVal} Tabs`;
+    if (tabCountBadge) tabCountBadge.textContent = `${currVal} ${currVal === 1 ? 'Tab' : 'Tabs'} Max`;
+  }
+
+  if (tabSliderMinLabel) tabSliderMinLabel.textContent = `${minVal} ${minVal === 1 ? 'Tab' : 'Tabs'} (Min)`;
+  if (tabSliderMaxLabel) tabSliderMaxLabel.textContent = `${maxRangeVal} Tabs (Max)`;
+
+  if (shouldDispatch) {
+    const currVal = parseInt(tabSlider ? tabSlider.value : minVal, 10);
+    sendAction("set_tab_range", { min_tabs: minVal, max_tabs_range: maxRangeVal, max_tabs: currVal });
+  }
+}
+
+btnDecMinTabs?.addEventListener("click", () => {
+  const currentMin = parseInt(cfgMinTabs.value || "1", 10);
+  if (currentMin > 1) {
+    updateTabRange(currentMin - 1, parseInt(cfgMaxTabsRange.value || "15", 10));
+  }
+});
+
+btnIncMinTabs?.addEventListener("click", () => {
+  const currentMin = parseInt(cfgMinTabs.value || "1", 10);
+  const currentMax = parseInt(cfgMaxTabsRange.value || "15", 10);
+  if (currentMin < currentMax) {
+    updateTabRange(currentMin + 1, currentMax);
+  }
+});
+
+btnDecMaxTabs?.addEventListener("click", () => {
+  const currentMin = parseInt(cfgMinTabs.value || "1", 10);
+  const currentMax = parseInt(cfgMaxTabsRange.value || "15", 10);
+  if (currentMax > currentMin) {
+    updateTabRange(currentMin, currentMax - 1);
+  }
+});
+
+btnIncMaxTabs?.addEventListener("click", () => {
+  const currentMin = parseInt(cfgMinTabs.value || "1", 10);
+  const currentMax = parseInt(cfgMaxTabsRange.value || "15", 10);
+  if (currentMax < 50) {
+    updateTabRange(currentMin, currentMax + 1);
+  }
+});
+
+cfgMinTabs?.addEventListener("change", () => {
+  updateTabRange(cfgMinTabs.value, cfgMaxTabsRange.value);
+});
+
+cfgMaxTabsRange?.addEventListener("change", () => {
+  updateTabRange(cfgMinTabs.value, cfgMaxTabsRange.value);
+});
+
 let tabDebounceTimer;
 tabSlider.addEventListener("input", (e) => {
-  const val = e.target.value;
-  tabSliderVal.textContent = `${val} Tabs`;
-  tabCountBadge.textContent = `${val} Tabs Max`;
+  const val = parseInt(e.target.value, 10);
+  tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
+  tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
 
   clearTimeout(tabDebounceTimer);
   tabDebounceTimer = setTimeout(async () => {
-    await sendAction("set_tabs", { max_tabs: parseInt(val, 10) });
+    await sendAction("set_tabs", { max_tabs: val });
   }, 400);
 });
 

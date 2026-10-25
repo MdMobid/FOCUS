@@ -764,7 +764,96 @@ input:checked+.slider::before {
   margin: 4px 0;
 }
 
-/* Section 3: Browser Tab Limiter Slider */
+/* Section 3: Browser Tab Limiter Bounds & Slider */
+.tab-bounds-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  background: var(--bg-well);
+  box-shadow: var(--neu-recessed-shallow);
+  border: 1px solid var(--border-rim);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.tab-bound-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tab-bound-box label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepper-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--neu-extrusion-sm);
+  overflow: hidden;
+  height: 32px;
+}
+
+.btn-stepper {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  background: var(--bg-panel-high);
+  color: var(--text-main);
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--anim-fast);
+  user-select: none;
+  outline: none;
+}
+
+.btn-stepper:hover {
+  background: var(--bg-panel-highest);
+  color: var(--accent-amber);
+}
+
+.btn-stepper:active {
+  box-shadow: var(--neu-pressed);
+  transform: translateY(1px);
+}
+
+.stepper-wrap input[type="number"] {
+  width: 100%;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  -moz-appearance: textfield;
+  padding: 0 4px;
+}
+
+.stepper-wrap input[type="number"]::-webkit-outer-spin-button,
+.stepper-wrap input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .tab-slider-wrap {
   display: flex;
   flex-direction: column;

@@ -3,7 +3,9 @@
   "focus_mode": false,
   "focus_expires_at": 0,
   "keyboard_locked": false,
-  "max_tabs": 5,
+  "max_tabs": 1,
+  "min_tabs": 1,
+  "max_tabs_range": 15,
   "allowed_apps": [
     "chrome.exe",
     "msedge.exe",
