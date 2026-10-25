@@ -110,16 +110,33 @@ class MainCoordinator:
         """Pulls latest commits from GitHub origin main and resurrects via watchdog."""
         print(f"[FOCUS Coordinator] Remote app update initiated (cmd_id: {cmd_id or 'none'})...")
         project_dir = os.path.dirname(SCRIPT_DIR)
-        git_cmd = [
+        fetch_cmd = [
             "git",
             "-c", "http.version=HTTP/1.1",
             "-c", "http.postBuffer=524288000",
             "-c", "safe.directory=*",
-            "pull", "origin", "main"
+            "fetch", "origin", "main"
+        ]
+        reset_cmd = [
+            "git",
+            "-c", "safe.directory=*",
+            "reset", "--hard", "origin/main"
         ]
         try:
+            # Capture current commit hash before update
+            old_head_proc = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                shell=(os.name == 'nt'),
+                timeout=15
+            )
+            old_head = old_head_proc.stdout.strip()
+
+            # Attempt fetch
             res = subprocess.run(
-                git_cmd,
+                fetch_cmd,
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
@@ -128,10 +145,10 @@ class MainCoordinator:
             )
             # Retry once on transient network drop (e.g. "remote end hung up unexpectedly")
             if res.returncode != 0:
-                print(f"[FOCUS Coordinator] Git pull attempt 1 had error code {res.returncode}. Retrying in 2s...")
+                print(f"[FOCUS Coordinator] Git fetch attempt 1 had code {res.returncode}. Retrying in 2s...")
                 time.sleep(2)
                 res = subprocess.run(
-                    git_cmd,
+                    fetch_cmd,
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
@@ -139,14 +156,37 @@ class MainCoordinator:
                     timeout=60
                 )
 
-            stdout = (res.stdout or "").strip()
-            stderr = (res.stderr or "").strip()
-            output = (stdout + "\n" + stderr).strip()
-            if not output:
-                output = f"Git completed with code {res.returncode}"
-
             is_success = (res.returncode == 0)
-            has_updates = "Already up to date" not in output and is_success
+            has_updates = False
+            output = ""
+
+            if is_success:
+                # Reset working tree cleanly to match latest origin/main
+                reset_res = subprocess.run(
+                    reset_cmd,
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                    shell=(os.name == 'nt'),
+                    timeout=30
+                )
+                new_head_proc = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                    shell=(os.name == 'nt'),
+                    timeout=15
+                )
+                new_head = new_head_proc.stdout.strip()
+                has_updates = (old_head != new_head and bool(new_head))
+                if has_updates:
+                    output = f"Updated: {old_head[:7]} -> {new_head[:7]}\n{reset_res.stdout.strip()}"
+                else:
+                    output = f"Already up to date ({new_head[:7] or 'main'})."
+            else:
+                err_text = ((res.stdout or "") + "\n" + (res.stderr or "")).strip()
+                output = f"Fetch failed (code {res.returncode}): {err_text}"
 
             status_data = {
                 "success": is_success,
