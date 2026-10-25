@@ -347,6 +347,17 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(500, {"error": "Coordinator unavailable"})
             return
 
+        # Delete Access Request endpoint
+        if path == "/api/delete_request":
+            req_id = payload.get("id") or payload.get("request_id")
+            target = payload.get("target", "")
+            if self.coordinator:
+                res = self.coordinator.delete_access_request(req_id, target)
+                self._send_json(200, res)
+            else:
+                self._send_json(500, {"error": "Coordinator unavailable"})
+            return
+
         # Whitelist update endpoint
         if path == "/api/rules":
             if self.coordinator:

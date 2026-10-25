@@ -249,6 +249,12 @@ class FirebaseCloudBridge:
             decision = cmd_obj.get("decision", "reject")
             self.coordinator.resolve_access_request(req_id, decision)
 
+        # Handle access request deletion from cloud
+        if action == "delete_request":
+            req_id = cmd_obj.get("request_id") or cmd_obj.get("id")
+            target = cmd_obj.get("target", "")
+            self.coordinator.delete_access_request(req_id, target)
+
         # Push immediate confirmation
         self.push_data("/focus/command_ack.json", {
             "id": cmd_id or "",

@@ -174,7 +174,8 @@ class MainCoordinator:
 
         elif action == "delete_request":
             req_id = payload.get("request_id") or payload.get("id")
-            res = self.delete_access_request(req_id)
+            target = payload.get("target", "")
+            res = self.delete_access_request(req_id, target)
             return res.get("success", False)
 
         return False
@@ -421,18 +422,30 @@ class MainCoordinator:
 
         return {"success": True, "status": decision_clean, "request": target_req}
 
-    def delete_access_request(self, req_id: str) -> Dict[str, Any]:
+    def delete_access_request(self, req_id: str, target: str = "") -> Dict[str, Any]:
         """Deletes a specific access request from history or pending list."""
         raw_requests = self.config.get("access_requests", [])
         requests = [r for r in raw_requests if isinstance(r, dict)] if isinstance(raw_requests, list) else []
-        new_requests = [r for r in requests if r.get("id") != req_id]
+        target_id_str = str(req_id).strip() if req_id else ""
+        target_val_str = str(target).strip() if target else ""
+
+        new_requests = []
+        for r in requests:
+            r_id = str(r.get("id", "")).strip()
+            r_target = str(r.get("target") or r.get("url") or "").strip()
+            if target_id_str and r_id == target_id_str:
+                continue
+            if target_val_str and r_target == target_val_str:
+                continue
+            new_requests.append(r)
+
         self.config.set("access_requests", new_requests)
         if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
             try:
                 self.cloud_bridge.push_data("/focus/requests.json", new_requests)
             except Exception:
                 pass
-        return {"success": True, "deleted_id": req_id}
+        return {"success": True, "deleted_id": req_id, "remaining": len(new_requests)}
 
     def get_status(self) -> Dict[str, Any]:
         """Returns comprehensive status dictionary for web dashboard polling."""

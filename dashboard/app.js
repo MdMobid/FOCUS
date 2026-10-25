@@ -888,20 +888,22 @@ function renderAccessRequests(requests) {
             </svg>
             Allowed
           </span>
-          <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-            View
-          </button>
-          <button class="btn-request btn-request-delete" data-id="${req.id}" title="Delete this request from history">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+          <div class="request-action-btns">
+            <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              View
+            </button>
+            <button class="btn-request btn-request-delete" data-id="${req.id || ''}" title="Delete this request from history">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     } else {
@@ -914,20 +916,22 @@ function renderAccessRequests(requests) {
             </svg>
             Rejected
           </span>
-          <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-            View
-          </button>
-          <button class="btn-request btn-request-delete" data-id="${req.id}" title="Delete this request from history">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+          <div class="request-action-btns">
+            <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              View
+            </button>
+            <button class="btn-request btn-request-delete" data-id="${req.id || ''}" title="Delete this request from history">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     }
@@ -970,10 +974,12 @@ function renderAccessRequests(requests) {
     // Bind Delete button
     card.querySelector(".btn-request-delete")?.addEventListener("click", async (e) => {
       e.stopPropagation();
-      await handleDeleteRequest(req.id);
+      const idToDelete = req.id || e.currentTarget.getAttribute("data-id");
+      await handleDeleteRequest(idToDelete, req);
     });
 
     requestsListContainer.appendChild(card);
+
   });
 }
 
@@ -1064,31 +1070,59 @@ async function handleResolveRequest(reqId, decision, req) {
   }
 }
 
-async function handleDeleteRequest(reqId) {
+async function handleDeleteRequest(reqId, reqObj) {
+  if (!reqId && !reqObj) return;
+  const targetId = String(reqId || reqObj?.id || "").trim();
+  const targetVal = String(reqObj?.target || reqObj?.url || "").trim();
+
   try {
-    // 1. Optimistic local update
-    _currentRequests = _currentRequests.filter((r) => r.id !== reqId);
+    // 1. Optimistic local update (filter by ID or target)
+    _currentRequests = _currentRequests.filter((r) => {
+      const rId = String(r.id || "").trim();
+      const rTarget = String(r.target || r.url || "").trim();
+      if (targetId && rId === targetId) return false;
+      if (targetVal && rTarget === targetVal) return false;
+      return true;
+    });
     renderAccessRequests(_currentRequests);
 
-    // 2. Push updated requests directly to Firebase if connected so phone/cloud UI stays 100% in sync
+    // 2. Direct PUT to Firebase RTDB (awaiting response so it persists before any refresh)
     if (fbUrl) {
       const cleanUrl = fbUrl.replace(/\/$/, "");
-      fetch(`${cleanUrl}/focus/requests.json?auth=${fbSecret}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(_currentRequests)
-      }).catch(() => { });
+      const authQuery = fbSecret ? `?auth=${encodeURIComponent(fbSecret)}` : "";
+      try {
+        const res = await fetch(`${cleanUrl}/focus/requests.json${authQuery}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(_currentRequests)
+        });
+        if (res.ok) {
+          console.log("[FOCUS Dashboard] Deleted request from Firebase successfully.");
+        } else {
+          console.warn("[FOCUS Dashboard] Firebase PUT status:", res.status);
+        }
+      } catch (e) {
+        console.warn("[FOCUS Dashboard] Firebase PUT error:", e);
+      }
     }
 
-    // 3. Dispatch delete_request action to coordinator
-    await sendAction("delete_request", {
-      id: "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9),
-      request_id: reqId
-    });
+    // 3. Dispatch delete_request action to coordinator (handles both local REST and cloud command)
+    if (!fbUrl && authToken) {
+      await apiFetch("/api/delete_request", {
+        method: "POST",
+        body: { request_id: targetId, target: targetVal }
+      });
+    } else {
+      await sendAction("delete_request", {
+        request_id: targetId,
+        target: targetVal
+      });
+    }
   } catch (err) {
-    console.error("Failed to delete request:", err);
+    console.error("[FOCUS Dashboard] Failed to delete request:", err);
   }
 }
+
 
 // --- 8. Whitelist Management ---
 document.querySelectorAll(".tab-btn").forEach((btn) => {
