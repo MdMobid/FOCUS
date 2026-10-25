@@ -223,6 +223,7 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/rules":
             if self.coordinator:
                 rules = self.coordinator.config.get_all()
+                rules["daemon_version"] = str(getattr(self.coordinator, "start_time", 0))
                 self._send_json(200, rules)
             else:
                 self._send_json(500, {"error": "Coordinator unavailable"})

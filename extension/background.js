@@ -31,6 +31,8 @@ chrome.runtime.onInstalled.addListener(() => {
   syncRulesWithDaemon();
 });
 
+let _lastDaemonVersion = null;
+
 // Periodic sync with local FOCUS daemon
 async function syncRulesWithDaemon() {
   try {
@@ -40,6 +42,19 @@ async function syncRulesWithDaemon() {
       if (data && data.allowed_sites) {
         chrome.storage.local.set({ focus_rules: data });
         console.log("[FOCUS Extension] Synchronized rules from local daemon:", data);
+
+        // Auto-reload extension code if daemon restarted with new updates
+        if (data.daemon_version) {
+          if (_lastDaemonVersion && _lastDaemonVersion !== data.daemon_version) {
+            console.log("[FOCUS Extension] New daemon version detected — reloading extension code automatically!");
+            _lastDaemonVersion = data.daemon_version;
+            try {
+              chrome.runtime.reload();
+              return;
+            } catch (reloadErr) { }
+          }
+          _lastDaemonVersion = data.daemon_version;
+        }
       }
     }
   } catch (err) {
