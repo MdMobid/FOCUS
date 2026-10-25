@@ -359,6 +359,16 @@ class MainCoordinator:
                     self.config.set("allowed_sites", allowed_sites)
                     print(f"[FOCUS Coordinator] Auto-approved website: {clean_site}")
 
+            elif req_type == "app" and target:
+                clean_app = target.lower().strip()
+                if not clean_app.endswith(".exe"):
+                    clean_app += ".exe"
+                allowed_apps = self.config.get("allowed_apps", [])
+                if clean_app not in [a.lower() for a in allowed_apps]:
+                    allowed_apps.append(clean_app)
+                    self.config.set("allowed_apps", allowed_apps)
+                    print(f"[FOCUS Coordinator] Auto-approved application: {clean_app}")
+
             elif req_type == "video":
                 channel = target_req.get("channel")
                 if channel:
@@ -371,9 +381,16 @@ class MainCoordinator:
 
         self.config.set("access_requests", requests)
 
+        # Mirror rules to disk rules.json
+        try:
+            self.update_rules({})
+        except Exception:
+            pass
+
         if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
             try:
                 self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
+                self.cloud_bridge.push_data("/focus/rules/allowed_apps.json", self.config.get("allowed_apps", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_channels.json", self.config.get("allowed_channels", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_sites.json", self.config.get("allowed_sites", []))
             except Exception:

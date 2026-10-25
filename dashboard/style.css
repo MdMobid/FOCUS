@@ -1327,6 +1327,12 @@ input[type="range"]::-webkit-slider-thumb:active {
   border-color: rgba(59, 130, 246, 0.2);
 }
 
+.request-type-icon.icon-app {
+  color: var(--accent-violet);
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
 .request-card-text {
   display: flex;
   flex-direction: column;

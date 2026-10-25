@@ -708,6 +708,17 @@ function renderAccessRequests(requests) {
           </svg>
         </div>
       `;
+    } else if (reqType === "app") {
+      typeLabel = "Application";
+      typeIconHtml = `
+        <div class="request-type-icon icon-app" title="Desktop Application">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </div>
+      `;
     } else {
       typeLabel = "Website";
       typeIconHtml = `
@@ -735,6 +746,7 @@ function renderAccessRequests(requests) {
       else timeStr = `${Math.floor(elapsed / 86400)}d ago`;
     }
 
+    const isApp = reqType === "app";
     let actionsHtml = "";
     if (req.status === "pending") {
       actionsHtml = `
@@ -752,6 +764,7 @@ function renderAccessRequests(requests) {
             </svg>
             Reject
           </button>
+          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open and inspect content in new tab">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -760,12 +773,14 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
+          ` : ""}
         </div>
       `;
     } else if (req.status === "approved") {
       actionsHtml = `
         <div class="request-actions">
           <span class="request-status-pill request-status-approved">✓ Allowed</span>
+          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -774,12 +789,14 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
+          ` : ""}
         </div>
       `;
     } else {
       actionsHtml = `
         <div class="request-actions">
           <span class="request-status-pill request-status-rejected">✕ Rejected</span>
+          ${!isApp ? `
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -788,6 +805,7 @@ function renderAccessRequests(requests) {
             </svg>
             View
           </button>
+          ` : ""}
         </div>
       `;
     }
@@ -867,6 +885,15 @@ async function handleResolveRequest(reqId, decision, req) {
         const clean = "@" + req.channel.replace(/^@/, "");
         if (!currentRules.allowed_channels.includes(clean)) {
           currentRules.allowed_channels.push(clean);
+        }
+      } else if (reqType === "app" && req.target) {
+        let clean = req.target.toLowerCase().trim();
+        if (!clean.endsWith(".exe")) clean += ".exe";
+        if (!currentRules.allowed_apps.includes(clean)) {
+          currentRules.allowed_apps.push(clean);
+        }
+        if (typeof renderInstalledApps === "function") {
+          renderInstalledApps();
         }
       }
       renderTagClouds();

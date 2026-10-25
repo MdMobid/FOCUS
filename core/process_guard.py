@@ -13,6 +13,13 @@ import threading
 import time
 from typing import Dict, List, Optional, Set, Tuple
 
+# Ensure local imports work
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from app_popup import show_app_blocked_popup
+
 # Win32 Constants
 TH32CS_SNAPPROCESS = 0x00000002
 PROCESS_TERMINATE = 0x0001
@@ -183,48 +190,63 @@ class ProcessGuardian:
 
                 if focus_active:
                     allowed_apps_raw = self.config.get("allowed_apps", [])
-                    allowed_set = {app.strip().lower() for app in allowed_apps_raw}
+                    clean_allowed = {app.strip().lower() for app in allowed_apps_raw if app.strip()}
+                    clean_allowed_no_ext = {app[:-4] if app.endswith(".exe") else app for app in clean_allowed}
 
-                    # Always allow own process and python
-                    allowed_set.add("python.exe")
-                    allowed_set.add("pythonw.exe")
-                    allowed_set.add("focus.exe")
+                    # Always allow own process, python, and coordinator
+                    clean_allowed.add("python.exe")
+                    clean_allowed.add("pythonw.exe")
+                    clean_allowed.add("focus.exe")
 
                     processes = get_running_processes_with_parent()
 
-                    # First pass: collect all Antigravity & immune PIDs so their children are also immune
-                    immune_pids: Set[int] = {self.own_pid, 0, 4}
+                    # 1. Dev-tree immunity ONLY (Antigravity IDE, agent subtasks, sentinel watchdog)
+                    dev_tree_pids: Set[int] = {self.own_pid, 0, 4}
                     for pid, ppid, exe_name in processes:
                         exe_lower = exe_name.lower()
-                        if "antigravity" in exe_lower or exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
-                            immune_pids.add(pid)
+                        if "antigravity" in exe_lower or "watchdog" in exe_lower:
+                            dev_tree_pids.add(pid)
+                        elif ppid in dev_tree_pids and pid > 4:
+                            dev_tree_pids.add(pid)
 
-                    # Second pass: check and terminate unauthorized apps
+                    # 2. Check and terminate unauthorized apps
                     for pid, ppid, exe_name in processes:
-                        if pid in immune_pids or pid <= 4 or pid == self.own_pid:
+                        if pid <= 4 or pid == self.own_pid or pid in dev_tree_pids:
                             continue
 
-                        # If parent process is immune (e.g. Antigravity IDE terminal/subtask), protect it
-                        if ppid in immune_pids:
-                            immune_pids.add(pid)
+                        # If child of Antigravity or sentinel watchdog, protect it
+                        if ppid in dev_tree_pids:
+                            dev_tree_pids.add(pid)
                             continue
 
                         exe_lower = exe_name.lower()
-                        if "antigravity" in exe_lower or exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
-                            immune_pids.add(pid)
+
+                        # System core process immunity check (OS kernel, shell, drivers, networking)
+                        # NOTE: explorer.exe and OS components are immune THEMSELVES,
+                        # but their children are NOT automatically immune!
+                        if exe_lower in ESSENTIAL_SYSTEM_PROCESSES:
                             continue
 
-                        # Check if process executable path belongs to Antigravity, .antigravity, or .gemini
+                        # Path-based dev shield: check if process executable path belongs to Antigravity
                         img_path = get_process_image_path(pid).lower()
                         if "antigravity" in img_path or ".antigravity" in img_path or ".gemini" in img_path:
-                            immune_pids.add(pid)
+                            dev_tree_pids.add(pid)
                             continue
 
-                        # Check if process is explicitly whitelisted
-                        if exe_lower not in allowed_set:
-                            # Terminate unauthorized application
-                            if terminate_process_by_pid(pid):
-                                print(f"[FOCUS Guardian] Terminated unauthorized app: {exe_name} (PID: {pid})")
+                        # Path-based Windows OS shield: protect essential Windows system files
+                        if img_path.startswith("c:\\windows\\system32\\") or img_path.startswith("c:\\windows\\syswow64\\"):
+                            if exe_lower.startswith(("host", "svc", "conhost", "sihost", "ctfmon", "dwm", "lsass", "csrss")):
+                                continue
+
+                        # Whitelist evaluation (match with or without .exe extension)
+                        exe_base = exe_lower[:-4] if exe_lower.endswith(".exe") else exe_lower
+                        if exe_lower in clean_allowed or exe_base in clean_allowed_no_ext:
+                            continue
+
+                        # Terminate unauthorized application
+                        if terminate_process_by_pid(pid):
+                            print(f"[FOCUS Guardian] Terminated unauthorized app: {exe_name} (PID: {pid})")
+                            show_app_blocked_popup(exe_name, exe_name)
 
             except Exception as exc:
                 print(f"[FOCUS Guardian] Loop error: {exc}", file=sys.stderr)
