@@ -13,6 +13,7 @@
     "google.com"
   ],
   "allowed_channels": [],
+  "allowed_videos": [],
   "server_port": 8443,
   "firebase_url": "",
   "firebase_secret": ""

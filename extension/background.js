@@ -13,7 +13,8 @@ const DEFAULT_RULES = {
     "github.com",
     "google.com"
   ],
-  allowed_channels: []
+  allowed_channels: [],
+  allowed_videos: []
 };
 
 // Initialize rules in local storage

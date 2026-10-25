@@ -204,12 +204,13 @@ function showBlockOverlay(channelName) {
   document.getElementById("focus-allow-video-btn")?.addEventListener("click", function () {
     this.disabled = true;
     this.textContent = "Sending Request...";
+    const videoId = extractVideoId(window.location.href);
     fetch("http://127.0.0.1:8443/api/request_access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type: "video",
-        target: window.location.href,
+        target: videoId || window.location.href,
         title: videoTitle,
         url: window.location.href,
         channel: cleanChannel
@@ -248,7 +249,37 @@ function removeBlockOverlay() {
   }
 }
 
-// Inspect current YouTube video channel
+function extractVideoId(urlStr) {
+  try {
+    const u = new URL(urlStr || window.location.href);
+    if (u.searchParams.has("v")) return u.searchParams.get("v");
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts.length > 1 && (parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "v")) {
+      return parts[1];
+    }
+  } catch (e) { }
+  const match = String(urlStr || window.location.href).match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : "";
+}
+
+function isVideoWhitelisted(videoId, allowedVideos) {
+  if (!videoId || !Array.isArray(allowedVideos)) return false;
+  const cleanId = videoId.trim();
+  return allowedVideos.some((item) => {
+    if (!item) return false;
+    if (typeof item === "string") {
+      const parsed = extractVideoId(item) || item.trim();
+      return parsed === cleanId;
+    }
+    if (typeof item === "object") {
+      const vId = item.id || extractVideoId(item.url || "") || "";
+      return vId.trim() === cleanId;
+    }
+    return false;
+  });
+}
+
+// Inspect current YouTube video channel or specific video
 function inspectCurrentChannel() {
   const path = window.location.pathname;
 
@@ -265,35 +296,54 @@ function inspectCurrentChannel() {
     return;
   }
 
-  // If on watch page: check owner element in DOM
-  if (path === "/watch") {
-    const ownerEl = document.querySelector("#owner ytd-channel-name a") ||
-      document.querySelector("ytd-video-owner-renderer #channel-name a") ||
-      document.querySelector("#meta #channel-name a");
+  // If on watch page or shorts
+  if (path === "/watch" || path.startsWith("/shorts/")) {
+    const videoId = extractVideoId(window.location.href);
 
-    if (ownerEl) {
-      const href = ownerEl.getAttribute("href") || "";
-      const text = ownerEl.textContent.trim();
-      let handle = "";
-      if (href.startsWith("/@")) {
-        handle = href.split("/")[0] ? href : href.substring(1);
-      } else {
-        handle = text;
+    safeGetRules((rules) => {
+      // 1. If specific video is explicitly allowed in Option 2, permit immediately!
+      if (videoId && isVideoWhitelisted(videoId, rules.allowed_videos)) {
+        removeBlockOverlay();
+        return;
       }
-      checkChannelAllowed(handle);
-    }
+
+      // 2. Otherwise check if creator channel is whitelisted
+      const ownerEl = document.querySelector("#owner ytd-channel-name a") ||
+        document.querySelector("ytd-video-owner-renderer #channel-name a") ||
+        document.querySelector("#meta #channel-name a") ||
+        document.querySelector("#channel-name a");
+
+      if (ownerEl) {
+        const href = ownerEl.getAttribute("href") || "";
+        const text = ownerEl.textContent.trim();
+        let handle = "";
+        if (href.startsWith("/@")) {
+          handle = href.split("/")[0] ? href : href.substring(1);
+        } else {
+          handle = text;
+        }
+        checkChannelAllowed(handle, videoId);
+      }
+    });
   }
 }
 
-function checkChannelAllowed(channelIdentifier) {
-  if (!channelIdentifier) return;
-
+function checkChannelAllowed(channelIdentifier, videoId) {
   safeGetRules((rules) => {
-    // When Focus Mode is OFF: all YouTube channels are allowed freely
+    // When Focus Mode is OFF: all YouTube channels and videos are allowed freely
     if (!rules.focus_mode) {
       removeBlockOverlay();
       return;
     }
+
+    // Check if this specific video is whitelisted
+    const currentVideoId = videoId || extractVideoId(window.location.href);
+    if (currentVideoId && isVideoWhitelisted(currentVideoId, rules.allowed_videos)) {
+      removeBlockOverlay();
+      return;
+    }
+
+    if (!channelIdentifier) return;
 
     const allowedChannels = (rules.allowed_channels || []).map(c => c.trim().toLowerCase());
 

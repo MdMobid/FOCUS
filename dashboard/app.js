@@ -8,7 +8,7 @@ let authToken = localStorage.getItem("focus_parent_token") || "";
 let fbUrl = localStorage.getItem("focus_fb_url") || "";
 let fbSecret = localStorage.getItem("focus_fb_secret") || "";
 let selectedDurationMins = 0;
-let currentRules = { allowed_sites: [], allowed_channels: [] };
+let currentRules = { allowed_sites: [], allowed_channels: [], allowed_videos: [] };
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
 
@@ -863,10 +863,22 @@ async function handleResolveRequest(reqId, decision, req) {
         if (!currentRules.allowed_sites.includes(clean)) {
           currentRules.allowed_sites.push(clean);
         }
-      } else if (reqType === "video" && req.channel) {
-        const clean = "@" + req.channel.replace(/^@/, "");
-        if (!currentRules.allowed_channels.includes(clean)) {
-          currentRules.allowed_channels.push(clean);
+      } else if (reqType === "video") {
+        // Option 2: Whitelist only this specific video; keep the rest of the channel restricted
+        const vId = extractVideoIdClient(req.target || req.url || "");
+        if (vId) {
+          currentRules.allowed_videos = currentRules.allowed_videos || [];
+          const exists = currentRules.allowed_videos.some((item) => {
+            const existingId = (typeof item === "object") ? item.id : item;
+            return existingId === vId;
+          });
+          if (!exists) {
+            currentRules.allowed_videos.push({
+              id: vId,
+              title: req.title || `Video (${vId})`,
+              channel: req.channel || ""
+            });
+          }
         }
       }
       renderTagClouds();
@@ -932,10 +944,12 @@ async function fetchRules() {
 function renderTagClouds() {
   renderCloud("sites", currentRules.allowed_sites || []);
   renderCloud("channels", currentRules.allowed_channels || []);
+  renderVideosCloud(currentRules.allowed_videos || []);
 }
 
 function renderCloud(type, items) {
   const container = document.getElementById(`tag-cloud-${type}`);
+  if (!container) return;
   container.innerHTML = "";
   items.forEach((item) => {
     const tag = document.createElement("div");
@@ -949,6 +963,70 @@ function renderCloud(type, items) {
     });
     container.appendChild(tag);
   });
+}
+
+function extractVideoIdClient(str) {
+  if (!str) return "";
+  const clean = str.trim();
+  const m = clean.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(clean)) return clean;
+  return "";
+}
+
+function renderVideosCloud(items) {
+  const container = document.getElementById("tag-cloud-videos");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!Array.isArray(items) || items.length === 0) {
+    container.innerHTML = `<span style="font-size: 11.5px; color: var(--text-dim); padding: 4px 6px;">No individual videos whitelisted.</span>`;
+    return;
+  }
+  items.forEach((item) => {
+    const vId = (typeof item === "object") ? item.id : item;
+    const title = (typeof item === "object" && item.title) ? item.title : `Video (${vId})`;
+    const ch = (typeof item === "object" && item.channel) ? ` • ${item.channel}` : "";
+    const displayLabel = title.length > 36 ? title.substring(0, 33) + "..." : title;
+
+    const tag = document.createElement("div");
+    tag.className = "tag";
+    tag.title = `${title}${ch} (ID: ${vId})`;
+    tag.innerHTML = `
+      <span>▶ ${displayLabel}</span>
+      <span class="tag-remove" data-id="${vId}">&times;</span>
+    `;
+    tag.querySelector(".tag-remove").addEventListener("click", () => {
+      removeVideo(vId);
+    });
+    container.appendChild(tag);
+  });
+}
+
+async function addVideo(value) {
+  const vId = extractVideoIdClient(value);
+  if (!vId) {
+    alert("Please enter a valid YouTube video URL or 11-character video ID.");
+    return;
+  }
+  currentRules.allowed_videos = currentRules.allowed_videos || [];
+  const exists = currentRules.allowed_videos.some((item) => {
+    const existingId = (typeof item === "object") ? item.id : item;
+    return existingId === vId;
+  });
+  if (exists) return;
+
+  currentRules.allowed_videos.push({ id: vId, title: `Video (${vId})` });
+  renderTagClouds();
+  await syncRulesToServer();
+}
+
+async function removeVideo(videoId) {
+  currentRules.allowed_videos = (currentRules.allowed_videos || []).filter((item) => {
+    const existingId = (typeof item === "object") ? item.id : item;
+    return existingId !== videoId;
+  });
+  renderTagClouds();
+  await syncRulesToServer();
 }
 
 async function addItem(type, value) {
@@ -997,6 +1075,13 @@ document.getElementById("btn-add-channel")?.addEventListener("click", () => {
   const inp = document.getElementById("input-channel");
   if (inp) {
     addItem("channels", inp.value);
+    inp.value = "";
+  }
+});
+document.getElementById("btn-add-video")?.addEventListener("click", () => {
+  const inp = document.getElementById("input-video");
+  if (inp) {
+    addVideo(inp.value);
     inp.value = "";
   }
 });

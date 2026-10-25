@@ -378,6 +378,11 @@
               style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-coral); margin-right:4px;"></span>
             YouTube Channels
           </button>
+          <button class="tab-btn" data-tab="videos">
+            <span
+              style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent-sapphire); margin-right:4px;"></span>
+            Allowed Videos
+          </button>
         </div>
 
         <!-- Websites Panel -->
@@ -396,6 +401,15 @@
             <button class="btn btn-primary" id="btn-add-channel">+ Add</button>
           </div>
           <div class="tag-cloud" id="tag-cloud-channels"></div>
+        </div>
+
+        <!-- YouTube Specific Videos Panel -->
+        <div class="tab-panel" id="panel-videos">
+          <div class="tag-input-row">
+            <input type="text" id="input-video" placeholder="e.g. YouTube video URL or ID (https://youtu.be/...)">
+            <button class="btn btn-primary" id="btn-add-video">+ Add Video</button>
+          </div>
+          <div class="tag-cloud" id="tag-cloud-videos"></div>
         </div>
       </section>
 

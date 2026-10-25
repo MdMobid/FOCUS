@@ -1083,6 +1083,11 @@ input[type="range"]::-webkit-slider-thumb:active {
   color: #fee2e2;
 }
 
+#panel-videos .tag {
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #bfdbfe;
+}
+
 .tag .tag-remove {
   background: none;
   border: none;

@@ -72,9 +72,23 @@ class TestFocusCore(unittest.TestCase):
             # Test Setting Key-Value
             test_db.set_setting("test_key", "hello_world")
             self.assertEqual(test_db.get_setting("test_key"), "hello_world")
+
+            # Test Allowed Videos (Option 2)
+            self.assertTrue(test_db.add_allowed_video("dQw4w9WgXcQ", "Never Gonna Give You Up", "@rickastley"))
+            videos = test_db.get_allowed_videos()
+            self.assertTrue(any(v["id"] == "dQw4w9WgXcQ" for v in videos))
+            self.assertTrue(test_db.remove_allowed_video("dQw4w9WgXcQ"))
+            self.assertFalse(any(v["id"] == "dQw4w9WgXcQ" for v in test_db.get_allowed_videos()))
         finally:
             if os.path.exists(tmp_db_path):
                 os.remove(tmp_db_path)
+
+    def test_youtube_video_id_extraction(self):
+        from main import extract_youtube_video_id
+        self.assertEqual(extract_youtube_video_id("https://www.youtube.com/watch?v=Rwf8eS3isWk"), "Rwf8eS3isWk")
+        self.assertEqual(extract_youtube_video_id("https://youtu.be/Rwf8eS3isWk"), "Rwf8eS3isWk")
+        self.assertEqual(extract_youtube_video_id("https://www.youtube.com/shorts/Rwf8eS3isWk"), "Rwf8eS3isWk")
+        self.assertEqual(extract_youtube_video_id("Rwf8eS3isWk"), "Rwf8eS3isWk")
 
 
 if __name__ == "__main__":

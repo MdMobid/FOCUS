@@ -59,7 +59,18 @@ class FocusDatabase:
                 );
             """)
 
-            # 5. Activity Audit Logs
+            # 5. Allowed YouTube Specific Videos
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS allowed_videos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    video_id TEXT UNIQUE COLLATE NOCASE NOT NULL,
+                    title TEXT NOT NULL DEFAULT '',
+                    channel TEXT NOT NULL DEFAULT '',
+                    added_at REAL NOT NULL
+                );
+            """)
+
+            # 6. Activity Audit Logs
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS activity_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,6 +194,57 @@ class FocusDatabase:
             conn.commit()
             return cursor.rowcount > 0
 
+    def get_allowed_videos(self) -> List[Dict[str, str]]:
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT video_id, title, channel FROM allowed_videos ORDER BY added_at DESC;")
+            return [{"id": row["video_id"], "title": row["title"], "channel": row["channel"]} for row in cursor.fetchall()]
+
+    def add_allowed_video(self, video_id: str, title: str = "", channel: str = "") -> bool:
+        clean_id = video_id.strip()
+        if not clean_id:
+            return False
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "INSERT INTO allowed_videos (video_id, title, channel, added_at) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(video_id) DO UPDATE SET title = excluded.title, channel = excluded.channel;",
+                    (clean_id, title.strip(), channel.strip(), time.time())
+                )
+                conn.commit()
+                return True
+            except Exception:
+                return False
+
+    def remove_allowed_video(self, video_id: str) -> bool:
+        clean_id = video_id.strip()
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM allowed_videos WHERE video_id = ?;", (clean_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def set_allowed_videos(self, videos: List[Any]):
+        with self._lock, self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM allowed_videos;")
+            for item in videos:
+                if isinstance(item, dict):
+                    v_id = str(item.get("id", "")).strip()
+                    title = str(item.get("title", "")).strip()
+                    ch = str(item.get("channel", "")).strip()
+                else:
+                    v_id = str(item).strip()
+                    title = ""
+                    ch = ""
+                if v_id:
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO allowed_videos (video_id, title, channel, added_at) VALUES (?, ?, ?, ?);",
+                        (v_id, title, ch, time.time())
+                    )
+            conn.commit()
+
     # --- Aggregated Rules Representation ---
     def get_all_rules(self) -> Dict[str, Any]:
         return {
@@ -196,6 +258,7 @@ class FocusDatabase:
             "firebase_url": self.get_setting("firebase_url", ""),
             "allowed_sites": self.get_allowed_sites(),
             "allowed_channels": self.get_allowed_channels(),
+            "allowed_videos": self.get_allowed_videos(),
         }
 
     def log_event(self, event_type: str, details: str):

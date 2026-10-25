@@ -6,6 +6,7 @@ embedded web server, registry policies, and the anti-kill watchdog.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -26,6 +27,19 @@ from registry_policy import set_task_manager_disabled, setup_startup_entry
 import system_power
 from web_server import EmbeddedWebServer
 from firebase_bridge import FirebaseCloudBridge
+
+
+def extract_youtube_video_id(url_or_id: str) -> str:
+    """Extracts 11-char YouTube video ID from watch URL, short URL, embed, or raw ID."""
+    if not url_or_id:
+        return ""
+    val = str(url_or_id).strip()
+    m = re.search(r'(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})', val)
+    if m:
+        return m.group(1)
+    if re.match(r'^[a-zA-Z0-9_-]{11}$', val):
+        return val
+    return ""
 
 
 class MainCoordinator:
@@ -257,7 +271,7 @@ class MainCoordinator:
 
     def update_rules(self, new_rules: Dict[str, Any]):
         """Updates whitelists from web dashboard and mirrors to rules.json."""
-        for key in ("allowed_sites", "allowed_channels", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
+        for key in ("allowed_sites", "allowed_channels", "allowed_videos", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
             if key in new_rules:
                 self.config.set(key, new_rules[key])
 
@@ -357,14 +371,17 @@ class MainCoordinator:
                     print(f"[FOCUS Coordinator] Auto-approved website: {clean_site}")
 
             elif req_type == "video":
-                channel = target_req.get("channel")
-                if channel:
-                    clean_ch = "@" + channel.lstrip("@")
-                    allowed_channels = self.config.get("allowed_channels", [])
-                    if clean_ch.lower() not in [c.lower() for c in allowed_channels]:
-                        allowed_channels.append(clean_ch)
-                        self.config.set("allowed_channels", allowed_channels)
-                        print(f"[FOCUS Coordinator] Auto-approved creator for video: {clean_ch}")
+                # Option 2: Strict single-video whitelist
+                # Only add this specific video to allowed_videos; creator's channel remains restricted!
+                target_val = target_req.get("target") or target_req.get("url") or ""
+                video_id = extract_youtube_video_id(target_val)
+                if video_id:
+                    self.config.db.add_allowed_video(
+                        video_id=video_id,
+                        title=target_req.get("title", f"Video {video_id}"),
+                        channel=target_req.get("channel", "")
+                    )
+                    print(f"[FOCUS Coordinator] Auto-approved specific video ID: {video_id} (channel remains restricted)")
 
         self.config.set("access_requests", requests)
 
@@ -373,6 +390,7 @@ class MainCoordinator:
                 self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
                 self.cloud_bridge.push_data("/focus/rules/allowed_channels.json", self.config.get("allowed_channels", []))
                 self.cloud_bridge.push_data("/focus/rules/allowed_sites.json", self.config.get("allowed_sites", []))
+                self.cloud_bridge.push_data("/focus/rules/allowed_videos.json", self.config.get("allowed_videos", []))
             except Exception:
                 pass
 
