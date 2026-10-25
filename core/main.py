@@ -43,8 +43,8 @@ def extract_youtube_video_id(url_or_id: str) -> str:
 
 
 class MainCoordinator:
-    def __init__(self):
-        self.config = config
+    def __init__(self, config_manager=None):
+        self.config = config_manager or config
         self.start_time = time.time()
 
         # 1. Initialize Keyboard Interceptor
@@ -100,13 +100,22 @@ class MainCoordinator:
             else:
                 self.config.set("focus_expires_at", 0)
 
-            # When Strict Focus Mode turns ON, default max tabs to configured min_tabs
+            # When Strict Focus Mode turns ON, respect requested or current max_tabs, clamped to min_tabs
             if enabled:
                 min_tabs = int(self.config.get("min_tabs", 1))
-                self.config.set("max_tabs", min_tabs)
+                max_range = int(self.config.get("max_tabs_range", 15))
+                req_tabs = payload.get("max_tabs")
+                if req_tabs is not None:
+                    target_tabs = max(min_tabs, min(int(req_tabs), max_range))
+                else:
+                    curr_tabs = int(self.config.get("max_tabs", min_tabs))
+                    target_tabs = max(min_tabs, min(curr_tabs, max_range))
+                self.config.set("max_tabs", target_tabs)
+                self.update_rules({"max_tabs": target_tabs})
                 if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
                     try:
-                        self.cloud_bridge.push_data("/focus/status/max_tabs.json", min_tabs)
+                        self.cloud_bridge.push_data("/focus/status/max_tabs.json", target_tabs)
+                        self.cloud_bridge.push_data("/focus/rules/max_tabs.json", target_tabs)
                     except Exception:
                         pass
 
@@ -120,6 +129,13 @@ class MainCoordinator:
             max_tabs = int(payload.get("max_tabs", min_tabs))
             clamped = max(min_tabs, min(max_tabs, max_range))
             self.config.set("max_tabs", clamped)
+            self.update_rules({"max_tabs": clamped})
+            if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                try:
+                    self.cloud_bridge.push_data("/focus/status/max_tabs.json", clamped)
+                    self.cloud_bridge.push_data("/focus/rules/max_tabs.json", clamped)
+                except Exception:
+                    pass
             return True
 
         elif action == "set_tab_range":
@@ -127,14 +143,18 @@ class MainCoordinator:
             max_range = max(min_tabs, int(payload.get("max_tabs_range", 15)))
             self.config.set("min_tabs", min_tabs)
             self.config.set("max_tabs_range", max_range)
-            current_max = int(self.config.get("max_tabs", min_tabs))
+            current_max = int(payload.get("max_tabs", self.config.get("max_tabs", min_tabs)))
             clamped = max(min_tabs, min(current_max, max_range))
             self.config.set("max_tabs", clamped)
+            self.update_rules({"min_tabs": min_tabs, "max_tabs_range": max_range, "max_tabs": clamped})
             if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
                 try:
                     self.cloud_bridge.push_data("/focus/status/min_tabs.json", min_tabs)
                     self.cloud_bridge.push_data("/focus/status/max_tabs_range.json", max_range)
                     self.cloud_bridge.push_data("/focus/status/max_tabs.json", clamped)
+                    self.cloud_bridge.push_data("/focus/rules/min_tabs.json", min_tabs)
+                    self.cloud_bridge.push_data("/focus/rules/max_tabs_range.json", max_range)
+                    self.cloud_bridge.push_data("/focus/rules/max_tabs.json", clamped)
                 except Exception:
                     pass
             return True

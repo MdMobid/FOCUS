@@ -79,6 +79,17 @@ class FocusDatabase:
                     details TEXT NOT NULL
                 );
             """)
+
+            # Column migrations for existing databases
+            try:
+                cursor.execute("ALTER TABLE allowed_videos ADD COLUMN channel TEXT NOT NULL DEFAULT '';")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE allowed_videos ADD COLUMN title TEXT NOT NULL DEFAULT '';")
+            except Exception:
+                pass
+
             conn.commit()
 
         # Seed initial defaults if newly created

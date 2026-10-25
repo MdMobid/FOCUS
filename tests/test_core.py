@@ -90,6 +90,47 @@ class TestFocusCore(unittest.TestCase):
         self.assertEqual(extract_youtube_video_id("https://www.youtube.com/shorts/Rwf8eS3isWk"), "Rwf8eS3isWk")
         self.assertEqual(extract_youtube_video_id("Rwf8eS3isWk"), "Rwf8eS3isWk")
 
+    def test_tab_limiting_and_clamping(self):
+        from main import MainCoordinator
+        from database import FocusDatabase
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            tmp_db = tmp.name
+        try:
+            db_inst = FocusDatabase(db_path=tmp_db)
+            cfg_inst = ConfigManager(database=db_inst)
+            coord = MainCoordinator(config_manager=cfg_inst)
+
+            # 1. Set tab range with min_tabs = 3, max_tabs_range = 15
+            coord.handle_action("set_tab_range", {"min_tabs": 3, "max_tabs_range": 15, "max_tabs": 3})
+            self.assertEqual(cfg_inst.get("min_tabs"), 3)
+            self.assertEqual(cfg_inst.get("max_tabs_range"), 15)
+            self.assertEqual(cfg_inst.get("max_tabs"), 3)
+
+            # 2. Set tabs to 5 (should be 5, within [3, 15])
+            coord.handle_action("set_tabs", {"max_tabs": 5})
+            self.assertEqual(cfg_inst.get("max_tabs"), 5)
+
+            # 3. Set tabs to 1 (should clamp to min_tabs = 3)
+            coord.handle_action("set_tabs", {"max_tabs": 1})
+            self.assertEqual(cfg_inst.get("max_tabs"), 3)
+
+            # 4. Set tabs to 20 (should clamp to max_tabs_range = 15)
+            coord.handle_action("set_tabs", {"max_tabs": 20})
+            self.assertEqual(cfg_inst.get("max_tabs"), 15)
+
+            # 5. Enable Focus Mode with specific max_tabs: 4 (within [3, 15])
+            coord.handle_action("focus", {"enabled": True, "duration_mins": 30, "max_tabs": 4})
+            self.assertTrue(cfg_inst.get("focus_mode"))
+            self.assertEqual(cfg_inst.get("max_tabs"), 4)
+
+            # 6. Enable Focus Mode with max_tabs: 1 (should clamp to min_tabs = 3)
+            coord.handle_action("focus", {"enabled": True, "duration_mins": 30, "max_tabs": 1})
+            self.assertEqual(cfg_inst.get("max_tabs"), 3)
+        finally:
+            if os.path.exists(tmp_db):
+                os.remove(tmp_db)
+
 
 if __name__ == "__main__":
     unittest.main()

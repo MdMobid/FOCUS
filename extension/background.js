@@ -38,6 +38,7 @@ async function syncRulesWithDaemon() {
       const data = await response.json();
       if (data && data.allowed_sites) {
         chrome.storage.local.set({ focus_rules: data });
+        enforceTabLimits(data);
         console.log("[FOCUS Extension] Synchronized rules from local daemon:", data);
 
         // Auto-reload extension code if daemon restarted with new updates
@@ -58,6 +59,25 @@ async function syncRulesWithDaemon() {
     // Daemon might be offline; fallback to cached storage rules
     console.debug("[FOCUS Extension] Daemon sync skipped (daemon offline or loading).");
   }
+}
+
+// Enforces tab limit across all browser windows when Focus Mode is active
+function enforceTabLimits(rules) {
+  if (!rules || !rules.focus_mode) return;
+  const maxTabs = (typeof rules.max_tabs === "number" && rules.max_tabs >= 1) ? rules.max_tabs : 1;
+
+  chrome.tabs.query({}, (tabs) => {
+    if (!tabs || tabs.length <= maxTabs) return;
+    const excessCount = tabs.length - maxTabs;
+    const eligible = tabs.filter((t) => !t.active && !t.pinned);
+    const toClose = eligible.length >= excessCount ? eligible.slice(-excessCount) : tabs.filter((t) => !t.active).slice(-excessCount);
+    for (const t of toClose) {
+      if (t.id) {
+        console.warn(`[FOCUS Extension] Enforcing tab limit (${maxTabs}). Closing excess tab: ${t.id}`);
+        chrome.tabs.remove(t.id).catch(() => { });
+      }
+    }
+  });
 }
 
 // Sync rules every 3 seconds for instant response

@@ -11,6 +11,7 @@ let selectedDurationMins = 0;
 let currentRules = { allowed_sites: [], allowed_channels: [], allowed_videos: [] };
 let lastFocusToggleTime = 0;
 let lastKeylockToggleTime = 0;
+let lastTabChangeTime = 0;
 
 // Reconnect tracking — when the PC goes offline then comes back, we freeze
 // toggle updates briefly (3s) so initial startup sync doesn't flip switches.
@@ -129,19 +130,34 @@ async function sendAction(action, extraPayload = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(Boolean(extraPayload.enabled)),
         });
+        await fetch(`${cleanUrl}/focus/rules/focus_mode.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Boolean(extraPayload.enabled)),
+        });
         const expiresAt = extraPayload.duration_mins > 0 ? (Date.now() / 1000) + (extraPayload.duration_mins * 60) : 0;
         await fetch(`${cleanUrl}/focus/status/focus_expires_at.json?auth=${fbSecret}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(expiresAt),
         });
-        if (extraPayload.enabled) {
-          const minT = parseInt(cfgMinTabs?.value || "1", 10);
+        await fetch(`${cleanUrl}/focus/rules/focus_expires_at.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(expiresAt),
+        });
+        if (extraPayload.enabled && extraPayload.max_tabs !== undefined) {
           await fetch(`${cleanUrl}/focus/status/max_tabs.json?auth=${fbSecret}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(minT),
+            body: JSON.stringify(extraPayload.max_tabs),
           });
+          await fetch(`${cleanUrl}/focus/rules/max_tabs.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(extraPayload.max_tabs),
+          });
+          if (currentRules) currentRules.max_tabs = extraPayload.max_tabs;
         }
       } else if (action === "keylock") {
         await fetch(`${cleanUrl}/focus/status/keyboard_locked.json?auth=${fbSecret}`, {
@@ -149,19 +165,42 @@ async function sendAction(action, extraPayload = {}) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(Boolean(extraPayload.enabled)),
         });
+        await fetch(`${cleanUrl}/focus/rules/keyboard_locked.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Boolean(extraPayload.enabled)),
+        });
       } else if (action === "set_tabs") {
+        lastTabChangeTime = Date.now();
         await fetch(`${cleanUrl}/focus/status/max_tabs.json?auth=${fbSecret}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(extraPayload.max_tabs),
         });
+        await fetch(`${cleanUrl}/focus/rules/max_tabs.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.max_tabs),
+        });
+        if (currentRules) currentRules.max_tabs = extraPayload.max_tabs;
       } else if (action === "set_tab_range") {
+        lastTabChangeTime = Date.now();
         await fetch(`${cleanUrl}/focus/status/min_tabs.json?auth=${fbSecret}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(extraPayload.min_tabs),
         });
+        await fetch(`${cleanUrl}/focus/rules/min_tabs.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.min_tabs),
+        });
         await fetch(`${cleanUrl}/focus/status/max_tabs_range.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(extraPayload.max_tabs_range),
+        });
+        await fetch(`${cleanUrl}/focus/rules/max_tabs_range.json?auth=${fbSecret}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(extraPayload.max_tabs_range),
@@ -172,6 +211,16 @@ async function sendAction(action, extraPayload = {}) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(extraPayload.max_tabs),
           });
+          await fetch(`${cleanUrl}/focus/rules/max_tabs.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(extraPayload.max_tabs),
+          });
+        }
+        if (currentRules) {
+          currentRules.min_tabs = extraPayload.min_tabs;
+          currentRules.max_tabs_range = extraPayload.max_tabs_range;
+          if (extraPayload.max_tabs !== undefined) currentRules.max_tabs = extraPayload.max_tabs;
         }
       }
     } catch (e) { }
@@ -344,6 +393,7 @@ async function pollStatus() {
         const freeze = Date.now();
         lastFocusToggleTime = freeze;
         lastKeylockToggleTime = freeze;
+        lastTabChangeTime = freeze;
         console.log("[FOCUS] PC reconnected — freezing toggle updates for", RECONNECT_FREEZE_MS / 1000, "s");
       }
     } else {
@@ -394,22 +444,25 @@ async function pollStatus() {
       activeWindowTitle.title = winTitle; // Full title available on hover
     }
 
-    // Tab Limits & Range Bounds
-    if (data.min_tabs !== undefined && data.max_tabs_range !== undefined) {
-      const minVal = parseInt(data.min_tabs, 10);
-      const maxRangeVal = parseInt(data.max_tabs_range, 10);
-      if (cfgMinTabs && cfgMaxTabsRange && !cfgMinTabs.matches(":focus") && !cfgMaxTabsRange.matches(":focus")) {
-        if (parseInt(cfgMinTabs.value, 10) !== minVal || parseInt(cfgMaxTabsRange.value, 10) !== maxRangeVal) {
-          updateTabRange(minVal, maxRangeVal, false);
+    // Tab Limits & Range Bounds (prevent snapback while user recently adjusted tabs OR just reconnected)
+    const isInteractingTabs = (Date.now() - lastTabChangeTime) < RECONNECT_FREEZE_MS;
+    if (!isInteractingTabs) {
+      if (data.min_tabs !== undefined && data.max_tabs_range !== undefined) {
+        const minVal = parseInt(data.min_tabs, 10);
+        const maxRangeVal = parseInt(data.max_tabs_range, 10);
+        if (cfgMinTabs && cfgMaxTabsRange && !cfgMinTabs.matches(":focus") && !cfgMaxTabsRange.matches(":focus")) {
+          if (parseInt(cfgMinTabs.value, 10) !== minVal || parseInt(cfgMaxTabsRange.value, 10) !== maxRangeVal) {
+            updateTabRange(minVal, maxRangeVal, false);
+          }
         }
       }
-    }
 
-    if (data.max_tabs !== undefined && !tabSlider.matches(":active")) {
-      const val = parseInt(data.max_tabs, 10);
-      tabSlider.value = val;
-      tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
-      tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
+      if (data.max_tabs !== undefined && !tabSlider.matches(":active")) {
+        const val = parseInt(data.max_tabs, 10);
+        tabSlider.value = val;
+        tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
+        tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
+      }
     }
 
     // Update Access Requests
@@ -452,14 +505,18 @@ toggleFocus.addEventListener("change", async () => {
     focusStatusBadge.textContent = selectedDurationMins > 0 ? `Active (${selectedDurationMins}m)` : "Active (Unlimited)";
     focusStatusBadge.className = "badge badge-primary";
 
-    // Set max tabs to configured minimum tabs automatically when Strict Focus Mode is ON
     const minTabs = parseInt(cfgMinTabs?.value || "1", 10);
-    tabSlider.value = minTabs;
-    tabSliderVal.textContent = minTabs === 1 ? "1 Tab" : `${minTabs} Tabs`;
-    tabCountBadge.textContent = `${minTabs} ${minTabs === 1 ? 'Tab' : 'Tabs'} Max`;
+    const maxRange = parseInt(cfgMaxTabsRange?.value || "15", 10);
+    let currentVal = parseInt(tabSlider?.value || minTabs, 10);
+    if (currentVal < minTabs) currentVal = minTabs;
+    if (currentVal > maxRange) currentVal = maxRange;
 
-    await sendAction("focus", { enabled, duration_mins: selectedDurationMins });
-    await sendAction("set_tabs", { max_tabs: minTabs });
+    tabSlider.value = currentVal;
+    tabSliderVal.textContent = currentVal === 1 ? "1 Tab" : `${currentVal} Tabs`;
+    tabCountBadge.textContent = `${currentVal} ${currentVal === 1 ? 'Tab' : 'Tabs'} Max`;
+
+    // Send single atomic command containing max_tabs
+    await sendAction("focus", { enabled, duration_mins: selectedDurationMins, max_tabs: currentVal });
   } else {
     focusStatusBadge.textContent = "Standby (All Limits OFF)";
     focusStatusBadge.className = "badge";
@@ -490,6 +547,7 @@ toggleKeylock.addEventListener("change", async () => {
 
 // --- 6. Tab Limiter Slider & Configurable Range Bounds ---
 function updateTabRange(minVal, maxRangeVal, shouldDispatch = true) {
+  lastTabChangeTime = Date.now();
   minVal = Math.max(1, parseInt(minVal || "1", 10));
   maxRangeVal = Math.max(minVal, parseInt(maxRangeVal || "15", 10));
 
@@ -559,12 +617,14 @@ cfgMaxTabsRange?.addEventListener("change", () => {
 
 let tabDebounceTimer;
 tabSlider.addEventListener("input", (e) => {
+  lastTabChangeTime = Date.now();
   const val = parseInt(e.target.value, 10);
   tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
   tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
 
   clearTimeout(tabDebounceTimer);
   tabDebounceTimer = setTimeout(async () => {
+    lastTabChangeTime = Date.now();
     await sendAction("set_tabs", { max_tabs: val });
   }, 400);
 });
