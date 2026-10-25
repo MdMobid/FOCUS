@@ -33,8 +33,14 @@ class FirebaseCloudBridge:
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
         self._telemetry_thread: Optional[threading.Thread] = None
-        self._processed_command_ids = set()
-        self._last_processed_timestamp = 0.0
+        # Load persisted processed command IDs and timestamp so reboots never re-execute
+        if hasattr(self.coordinator, 'config') and self.coordinator.config:
+            raw_ids = self.coordinator.config.get("processed_cmd_ids", [])
+            self._processed_command_ids = set(raw_ids) if isinstance(raw_ids, list) else set()
+            self._last_processed_timestamp = float(self.coordinator.config.get("last_processed_cmd_timestamp", 0.0))
+        else:
+            self._processed_command_ids = set()
+            self._last_processed_timestamp = 0.0
 
     def _build_url(self, path: str) -> str:
         clean_path = path.lstrip("/")
@@ -131,27 +137,79 @@ class FirebaseCloudBridge:
         if timestamp > 1e11:
             timestamp /= 1000.0
 
-        if not action:
+        if not action or action in ("cleared", "idle", "none", "ack"):
             return
 
-        # Anti-replay & Deduplication
+        now = time.time()
+        coord_start = getattr(self.coordinator, "start_time", 0.0)
+        POWER_ACTIONS = {"lock", "signout", "restart", "shutdown"}
+
+        # 1. Anti-loop & Stale Command Protection:
+        # Power commands (lock, signout, restart, shutdown) MUST NEVER execute if:
+        # - Issued before this workstation session started (timestamp < coord_start - 3.0)
+        # - Or older than 45 seconds from current real-world time
+        if action in POWER_ACTIONS:
+            is_stale_power = False
+            if timestamp > 0 and timestamp < (coord_start - 3.0):
+                is_stale_power = True
+            elif timestamp > 0 and (now - timestamp) > 45.0:
+                is_stale_power = True
+
+            if is_stale_power:
+                print(f"[FOCUS Cloud] Discarding STALE power command '{action}' (age: {now - timestamp:.1f}s, issued before startup). Infinite loop prevented.")
+                self.push_data("/focus/command.json", {
+                    "action": "cleared",
+                    "id": f"cleared_stale_{cmd_id or 'none'}",
+                    "timestamp": now
+                })
+                return
+
+        # 2. General Stale Protection:
+        # Any command issued before this coordinator started (and older than 60s) is dropped,
+        # unless it is a passive rule sync.
+        if action not in ("sync_rules",) and timestamp > 0:
+            if (timestamp < coord_start - 5.0) and ((now - timestamp) > 60.0):
+                print(f"[FOCUS Cloud] Discarding expired command '{action}' (age: {now - timestamp:.1f}s).")
+                return
+
+        # 3. Anti-replay & Deduplication (persisted to SQLite)
         if cmd_id:
             cmd_id_str = str(cmd_id)
             if cmd_id_str in self._processed_command_ids:
                 return
             self._processed_command_ids.add(cmd_id_str)
-            if len(self._processed_command_ids) > 1000:
+            if len(self._processed_command_ids) > 500:
                 try:
                     self._processed_command_ids.pop()
                 except KeyError:
+                    pass
+            if hasattr(self.coordinator, 'config') and self.coordinator.config:
+                try:
+                    self.coordinator.config.set("processed_cmd_ids", list(self._processed_command_ids)[-200:])
+                    self.coordinator.config.set("last_processed_cmd_timestamp", max(timestamp, now))
+                except Exception:
                     pass
         else:
             # Fallback if no ID is sent by legacy client
             if timestamp <= self._last_processed_timestamp:
                 return
             self._last_processed_timestamp = timestamp
+            if hasattr(self.coordinator, 'config') and self.coordinator.config:
+                try:
+                    self.coordinator.config.set("last_processed_cmd_timestamp", max(timestamp, now))
+                except Exception:
+                    pass
 
         print(f"[FOCUS Cloud] Received parent command: '{action}' (ID: {cmd_id or 'none'})")
+
+        # 4. Clear power commands in Firebase FIRST before local execution
+        # so abrupt shutdown/restart or logoff doesn't leave the command in cloud database!
+        if action in POWER_ACTIONS:
+            self.push_data("/focus/command.json", {
+                "action": "cleared",
+                "id": f"cleared_{cmd_id or 'none'}",
+                "timestamp": now
+            })
 
         # Execute action on local machine
         success = self.coordinator.handle_action(action, cmd_obj)

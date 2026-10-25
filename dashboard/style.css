@@ -62,7 +62,9 @@
 }
 
 /* Base Reset & Box Sizing */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -100,13 +102,16 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-canvas);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
@@ -146,6 +151,7 @@ body {
     opacity: 0;
     transform: scale(0.96) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -476,19 +482,22 @@ body {
 }
 
 .btn-power {
-  min-height: 68px;
-  padding: 12px 14px;
+  min-height: 80px;
+  padding: 14px 10px;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 8px;
   cursor: pointer;
   transition: var(--anim-fast);
-  text-align: left;
+  text-align: center;
   color: var(--text-high);
   outline: none;
+  width: 100%;
 }
 
 .btn-power:hover {
@@ -497,12 +506,12 @@ body {
 }
 
 .btn-power:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-power-icon {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -529,22 +538,13 @@ body {
   border-color: var(--accent-danger);
 }
 
-.btn-power-text {
-  display: flex;
-  flex-direction: column;
-}
-
 .btn-power-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-high);
   line-height: 1.2;
-}
-
-.btn-power-sub {
-  font-size: 10.5px;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
+  text-align: center;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -608,12 +608,12 @@ body {
   border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);
 }
 
-input:checked + .slider::before {
+input:checked+.slider::before {
   transform: translateX(22px);
   background-color: #042f1a;
 }
@@ -842,6 +842,54 @@ input[type="range"] {
 /* ==========================================================================
    Section 5: Student Access Requests & Notifications
    ========================================================================== */
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-header-pill {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: var(--anim-fast);
+  line-height: 1;
+  outline: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.btn-header-pill:hover {
+  background: var(--bg-surface-high);
+  color: var(--text-high);
+  border-color: var(--border-hover);
+}
+
+.btn-header-pill.active,
+.btn-header-pill.active-history {
+  background: var(--accent-secondary-dim);
+  color: var(--accent-secondary);
+  border-color: var(--accent-secondary-border);
+}
+
+.btn-header-pill.active-primary {
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary-border);
+}
+
 .requests-well {
   background: var(--bg-well);
   border: 1px solid var(--border-subtle);
@@ -990,18 +1038,31 @@ input[type="range"] {
 }
 
 .btn-request {
-  min-height: 38px;
-  padding: 0 14px;
-  font-size: 12px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 11.5px;
   font-weight: 600;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   transition: var(--anim-fast);
   outline: none;
   border: 1px solid transparent;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.btn-request svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .btn-request:active {
@@ -1041,22 +1102,71 @@ input[type="range"] {
   border-color: var(--border-hover);
 }
 
-.request-status-pill {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
+.btn-request-delete {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-elevated);
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  text-transform: capitalize;
+  cursor: pointer;
+  transition: var(--anim-fast);
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.btn-request-delete svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.btn-request-delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-danger);
+  border-color: var(--accent-danger);
+}
+
+.request-status-pill {
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.request-status-pill svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .request-status-approved {
   background: var(--accent-primary-dim);
   color: var(--accent-primary);
+  border-color: var(--accent-primary-border);
 }
 
 .request-status-rejected {
   background: var(--accent-danger-dim);
   color: var(--accent-danger);
+  border-color: var(--accent-danger-border);
 }
 
 /* ==========================================================================
@@ -1309,7 +1419,8 @@ input[type="range"] {
   outline: none;
 }
 
-.nav-item:hover, .nav-item.active {
+.nav-item:hover,
+.nav-item.active {
   color: var(--accent-primary);
 }
 

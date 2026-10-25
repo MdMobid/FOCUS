@@ -122,6 +122,17 @@ async function sendAction(action, extraPayload = {}) {
       body: JSON.stringify(payload),
     });
 
+    // Auto-clear transient power actions after 3s so stale commands never persist in Firebase
+    if (["lock", "signout", "restart", "shutdown"].includes(action)) {
+      setTimeout(() => {
+        fetch(`${cleanUrl}/focus/command.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cleared", id: "cleared_" + cmdId, timestamp: Date.now() }),
+        }).catch(() => { });
+      }, 3000);
+    }
+
     // Optimistically update cloud status nodes so polling never flips switches back
     try {
       if (action === "focus") {
@@ -682,6 +693,7 @@ refreshScreenBtn.addEventListener("click", async () => {
 
 // --- 7.5 Access Requests & Notifications ---
 let _currentRequests = [];
+let _showRequestsHistory = false;
 
 async function fetchRequests() {
   try {
@@ -715,32 +727,77 @@ async function fetchRequests() {
 function renderAccessRequests(requests) {
   if (!requestsListContainer) return;
 
-  const pendingCount = (requests || []).filter((r) => r.status === "pending").length;
+  const allReqs = requests || [];
+  const pendingReqs = allReqs.filter((r) => r.status === "pending");
+  const historyReqs = allReqs.filter((r) => r.status !== "pending");
+
+  const pendingCount = pendingReqs.length;
   if (pendingRequestsBadge) {
     pendingRequestsBadge.textContent = `${pendingCount} Pending`;
-    if (pendingCount > 0) {
-      pendingRequestsBadge.className = "badge badge-primary";
+    if (!_showRequestsHistory) {
+      pendingRequestsBadge.className = pendingCount > 0 ? "btn-header-pill active-primary" : "btn-header-pill active";
+      pendingRequestsBadge.title = "Viewing pending access requests";
     } else {
-      pendingRequestsBadge.className = "badge";
+      pendingRequestsBadge.className = "btn-header-pill";
+      pendingRequestsBadge.title = "Switch to pending access requests";
     }
   }
 
-  if (!requests || requests.length === 0) {
-    requestsListContainer.innerHTML = `
-      <div class="no-requests-msg" id="no-requests-placeholder">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4; margin-bottom:4px;">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 6v6l4 2"></path>
-        </svg>
-        <span>No pending access requests. System is operating normally.</span>
-      </div>
-    `;
+  const btnToggle = document.getElementById("btn-toggle-history");
+  const sectionTitle = document.getElementById("requests-section-title");
+  const sectionDesc = document.getElementById("requests-section-desc");
+
+  if (btnToggle) {
+    if (_showRequestsHistory) {
+      btnToggle.className = "btn-header-pill active-history";
+      btnToggle.title = "Viewing past approved and rejected access requests";
+      if (sectionTitle) sectionTitle.textContent = "Request History";
+      if (sectionDesc) sectionDesc.textContent = "Past approved and rejected access requests from workstation.";
+    } else {
+      btnToggle.className = "btn-header-pill";
+      btnToggle.title = "Switch to request history";
+      if (sectionTitle) sectionTitle.textContent = "Access Requests";
+      if (sectionDesc) sectionDesc.textContent = "Study access requests submitted from workstation. Tap Allow to whitelist instantly, Reject to dismiss, or View to inspect URL.";
+    }
+  }
+
+  const listToRender = _showRequestsHistory ? historyReqs : pendingReqs;
+
+  if (listToRender.length === 0) {
+    if (_showRequestsHistory) {
+      requestsListContainer.innerHTML = `
+        <div class="no-requests-msg" id="no-requests-placeholder">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4; margin-bottom:4px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>No request history yet. Approved and rejected requests will appear here.</span>
+        </div>
+      `;
+    } else {
+      requestsListContainer.innerHTML = `
+        <div class="no-requests-msg" id="no-requests-placeholder">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4; margin-bottom:4px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+          <span>No pending access requests. System is operating normally.</span>
+        </div>
+      `;
+    }
     return;
   }
 
   requestsListContainer.innerHTML = "";
 
-  requests.forEach((req) => {
+  // Sort by newest first
+  listToRender.sort((a, b) => {
+    const timeA = Number(a.resolved_at || a.timestamp || 0);
+    const timeB = Number(b.resolved_at || b.timestamp || 0);
+    return timeB - timeA;
+  });
+
+  listToRender.forEach((req) => {
     const card = document.createElement("div");
     card.className = `request-card status-${req.status || "pending"}`;
 
@@ -825,28 +882,51 @@ function renderAccessRequests(requests) {
     } else if (req.status === "approved") {
       actionsHtml = `
         <div class="request-actions">
-          <span class="request-status-pill request-status-approved">✓ Allowed</span>
+          <span class="request-status-pill request-status-approved">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Allowed
+          </span>
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
               <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
             View
           </button>
+          <button class="btn-request btn-request-delete" data-id="${req.id}" title="Delete this request from history">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
       `;
     } else {
       actionsHtml = `
         <div class="request-actions">
-          <span class="request-status-pill request-status-rejected">✕ Rejected</span>
+          <span class="request-status-pill request-status-rejected">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Rejected
+          </span>
           <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
               <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
             View
+          </button>
+          <button class="btn-request btn-request-delete" data-id="${req.id}" title="Delete this request from history">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
       `;
@@ -887,9 +967,25 @@ function renderAccessRequests(requests) {
       window.open(targetUrl, "_blank", "noopener,noreferrer");
     });
 
+    // Bind Delete button
+    card.querySelector(".btn-request-delete")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await handleDeleteRequest(req.id);
+    });
+
     requestsListContainer.appendChild(card);
   });
 }
+
+document.getElementById("btn-toggle-history")?.addEventListener("click", () => {
+  _showRequestsHistory = true;
+  renderAccessRequests(_currentRequests);
+});
+
+pendingRequestsBadge?.addEventListener("click", () => {
+  _showRequestsHistory = false;
+  renderAccessRequests(_currentRequests);
+});
 
 async function handleResolveRequest(reqId, decision, req) {
   try {
@@ -965,6 +1061,32 @@ async function handleResolveRequest(reqId, decision, req) {
     renderAccessRequests(_currentRequests);
   } catch (err) {
     alert("Failed to resolve request: " + err.message);
+  }
+}
+
+async function handleDeleteRequest(reqId) {
+  try {
+    // 1. Optimistic local update
+    _currentRequests = _currentRequests.filter((r) => r.id !== reqId);
+    renderAccessRequests(_currentRequests);
+
+    // 2. Push updated requests directly to Firebase if connected so phone/cloud UI stays 100% in sync
+    if (fbUrl) {
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      fetch(`${cleanUrl}/focus/requests.json?auth=${fbSecret}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(_currentRequests)
+      }).catch(() => { });
+    }
+
+    // 3. Dispatch delete_request action to coordinator
+    await sendAction("delete_request", {
+      id: "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9),
+      request_id: reqId
+    });
+  } catch (err) {
+    console.error("Failed to delete request:", err);
   }
 }
 
