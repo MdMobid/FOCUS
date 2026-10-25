@@ -258,10 +258,19 @@ class MainCoordinator:
             return err_data
 
     def update_rules(self, new_rules: Dict[str, Any]):
-        """Updates whitelists from web dashboard."""
-        for key in ("allowed_apps", "allowed_sites", "allowed_channels", "max_tabs", "firebase_url", "firebase_secret"):
+        """Updates whitelists from web dashboard and mirrors to rules.json."""
+        for key in ("allowed_apps", "allowed_sites", "allowed_channels", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
             if key in new_rules:
                 self.config.set(key, new_rules[key])
+
+        # Atomically mirror updated rules to config/rules.json on disk
+        try:
+            rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
+            current = self.config.get_all()
+            with open(rules_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+        except Exception as e:
+            print(f"[FOCUS Coordinator] Warning: Could not write rules.json: {e}")
 
     def record_access_request(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
         """Records an access request when a student asks to allow a channel, video, or website."""
