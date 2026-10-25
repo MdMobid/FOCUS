@@ -26,9 +26,7 @@
     "github.com",
     "google.com"
   ],
-  "allowed_channels": [
-    "@khanacademy"
-  ],
+  "allowed_channels": [],
   "server_port": 8443,
   "firebase_url": "",
   "firebase_secret": ""

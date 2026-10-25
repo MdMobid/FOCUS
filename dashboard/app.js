@@ -53,6 +53,12 @@ const refreshScreenBtn = document.getElementById("refresh-screen-btn");
 const screenshotContainer = document.getElementById("screenshot-container");
 const screenshotImg = document.getElementById("screenshot-img");
 
+// Section 5: Access Requests DOM Elements
+const pendingRequestsBadge = document.getElementById("pending-requests-badge");
+const requestsListContainer = document.getElementById("requests-list-container");
+const noRequestsPlaceholder = document.getElementById("no-requests-placeholder");
+
+
 // --- 1. Cloud & API Helper ---
 function updateCloudModeIndicator() {
   const isCloudHost = window.location.hostname.includes("github.io") || !!fbUrl;
@@ -265,6 +271,7 @@ logoutBtn.addEventListener("click", () => {
 // --- 3. Dashboard Initialization & State Polling ---
 async function initDashboard() {
   await fetchRules();
+  await fetchRequests();
   await pollStatus();
   setInterval(pollStatus, 2500);
 }
@@ -292,7 +299,7 @@ async function pollStatus() {
 
     if (isOnline) {
       statusPill.className = "status-pill online";
-      statusText.textContent = fbUrl ? "Cloud (Live)" : "Local";
+      statusText.textContent = fbUrl ? "Cloud" : "Local";
 
       // PC just came back online after being offline — freeze toggles so the
       // daemon's startup safety reset (focus=false, keylock=false) doesn't
@@ -359,6 +366,9 @@ async function pollStatus() {
       tabSliderVal.textContent = `${data.max_tabs} Tabs`;
       tabCountBadge.textContent = `${data.max_tabs} Tabs Max`;
     }
+
+    // Update Access Requests
+    await fetchRequests();
   } catch (err) {
     statusPill.className = "status-pill";
     statusText.textContent = "Offline";
@@ -488,6 +498,282 @@ refreshScreenBtn.addEventListener("click", async () => {
     refreshScreenBtn.textContent = "📷 Take Live Screenshot";
   }
 });
+
+// --- 7.5 Access Requests & Notifications ---
+let _currentRequests = [];
+
+async function fetchRequests() {
+  try {
+    let requests = [];
+    if (fbUrl) {
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      const res = await fetch(`${cleanUrl}/focus/requests.json?auth=${fbSecret}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          requests = data;
+        } else if (data && typeof data === "object") {
+          requests = Object.values(data);
+        }
+      }
+    } else {
+      if (!authToken) return;
+      const res = await apiFetch("/api/requests");
+      if (res.ok) {
+        const data = await res.json();
+        requests = data.requests || [];
+      }
+    }
+    _currentRequests = requests;
+    renderAccessRequests(requests);
+  } catch (err) {
+    console.error("[FOCUS Dashboard] Error fetching requests:", err);
+  }
+}
+
+function renderAccessRequests(requests) {
+  if (!requestsListContainer) return;
+
+  const pendingCount = (requests || []).filter((r) => r.status === "pending").length;
+  if (pendingRequestsBadge) {
+    pendingRequestsBadge.textContent = `${pendingCount} Pending`;
+    if (pendingCount > 0) {
+      pendingRequestsBadge.className = "badge badge-primary";
+    } else {
+      pendingRequestsBadge.className = "badge";
+    }
+  }
+
+  if (!requests || requests.length === 0) {
+    requestsListContainer.innerHTML = `
+      <div class="no-requests-msg" id="no-requests-placeholder">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4; margin-bottom:4px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 6v6l4 2"></path>
+        </svg>
+        <span>No pending access requests. System is operating normally.</span>
+      </div>
+    `;
+    return;
+  }
+
+  requestsListContainer.innerHTML = "";
+
+  requests.forEach((req) => {
+    const card = document.createElement("div");
+    card.className = `request-card status-${req.status || "pending"}`;
+
+    const reqType = (req.type || "website").toLowerCase();
+    let typeIconHtml = "";
+    let typeLabel = "Website";
+
+    if (reqType === "channel") {
+      typeLabel = "YouTube Channel";
+      typeIconHtml = `
+        <div class="request-type-icon icon-channel" title="YouTube Channel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+            <polyline points="17 2 12 7 7 2"></polyline>
+          </svg>
+        </div>
+      `;
+    } else if (reqType === "video") {
+      typeLabel = "YouTube Video";
+      typeIconHtml = `
+        <div class="request-type-icon icon-video" title="YouTube Video">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+          </svg>
+        </div>
+      `;
+    } else {
+      typeLabel = "Website";
+      typeIconHtml = `
+        <div class="request-type-icon icon-website" title="Website Domain">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </div>
+      `;
+    }
+
+    const title = req.title || req.target || "Requested Item";
+    const target = req.target || req.url || "";
+    const url = req.url || (req.target && req.target.startsWith("http") ? req.target : `https://${req.target}`);
+
+    // Time formatting
+    let timeStr = "Recently";
+    if (req.timestamp) {
+      const elapsed = Math.max(0, Math.floor(Date.now() / 1000 - req.timestamp));
+      if (elapsed < 60) timeStr = "Just now";
+      else if (elapsed < 3600) timeStr = `${Math.floor(elapsed / 60)}m ago`;
+      else if (elapsed < 86400) timeStr = `${Math.floor(elapsed / 3600)}h ago`;
+      else timeStr = `${Math.floor(elapsed / 86400)}d ago`;
+    }
+
+    let actionsHtml = "";
+    if (req.status === "pending") {
+      actionsHtml = `
+        <div class="request-actions">
+          <button class="btn-request btn-request-allow" data-id="${req.id}" title="Approve and auto-add to whitelist">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Allow
+          </button>
+          <button class="btn-request btn-request-reject" data-id="${req.id}" title="Reject request and keep restricted">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Reject
+          </button>
+          <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open and inspect content in new tab">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            View
+          </button>
+        </div>
+      `;
+    } else if (req.status === "approved") {
+      actionsHtml = `
+        <div class="request-actions">
+          <span class="request-status-pill request-status-approved">✓ Allowed</span>
+          <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            View
+          </button>
+        </div>
+      `;
+    } else {
+      actionsHtml = `
+        <div class="request-actions">
+          <span class="request-status-pill request-status-rejected">✕ Rejected</span>
+          <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            View
+          </button>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="request-card-info">
+        ${typeIconHtml}
+        <div class="request-card-text">
+          <div class="request-title" title="${title}">${title}</div>
+          <div class="request-subtitle">
+            <span class="request-meta-tag">${typeLabel}</span>
+            <span>&bull;</span>
+            <span>${timeStr}</span>
+            ${req.channel && reqType === "video" ? `<span>&bull;</span><span style="color:var(--text-secondary);">${req.channel}</span>` : ""}
+          </div>
+        </div>
+      </div>
+      ${actionsHtml}
+    `;
+
+    // Bind Allow button
+    card.querySelector(".btn-request-allow")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await handleResolveRequest(req.id, "allow", req);
+    });
+
+    // Bind Reject button
+    card.querySelector(".btn-request-reject")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await handleResolveRequest(req.id, "reject", req);
+    });
+
+    // Bind View button
+    card.querySelector(".btn-request-view")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const targetUrl = decodeURIComponent(e.currentTarget.getAttribute("data-url") || url);
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    });
+
+    requestsListContainer.appendChild(card);
+  });
+}
+
+async function handleResolveRequest(reqId, decision, req) {
+  try {
+    // 1. Dispatch action to PC coordinator
+    await sendAction("resolve_request", {
+      id: "cmd_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9),
+      request_id: reqId,
+      decision: decision
+    });
+
+    // 2. Optimistic local & cloud update
+    const targetStatus = decision === "allow" ? "approved" : "rejected";
+    if (req) {
+      req.status = targetStatus;
+    }
+    const found = _currentRequests.find((r) => r.id === reqId);
+    if (found) {
+      found.status = targetStatus;
+    }
+
+    // Auto-update rules tag clouds optimistically if allowed
+    if (decision === "allow" && req) {
+      const reqType = (req.type || "").toLowerCase();
+      if (reqType === "channel" && req.target) {
+        const clean = "@" + req.target.replace(/^@/, "");
+        if (!currentRules.allowed_channels.includes(clean)) {
+          currentRules.allowed_channels.push(clean);
+        }
+      } else if (reqType === "website" && req.target) {
+        const clean = req.target.toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+        if (!currentRules.allowed_sites.includes(clean)) {
+          currentRules.allowed_sites.push(clean);
+        }
+      } else if (reqType === "video" && req.channel) {
+        const clean = "@" + req.channel.replace(/^@/, "");
+        if (!currentRules.allowed_channels.includes(clean)) {
+          currentRules.allowed_channels.push(clean);
+        }
+      }
+      renderTagClouds();
+    }
+
+    // Push directly to Firebase if connected so phone/cloud UI stays 100% in sync
+    if (fbUrl) {
+      const cleanUrl = fbUrl.replace(/\/$/, "");
+      fetch(`${cleanUrl}/focus/requests.json?auth=${fbSecret}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(_currentRequests)
+      }).catch(() => { });
+      if (decision === "allow") {
+        fetch(`${cleanUrl}/focus/rules.json?auth=${fbSecret}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentRules)
+        }).catch(() => { });
+      }
+    }
+
+    // Re-render UI immediately
+    renderAccessRequests(_currentRequests);
+  } catch (err) {
+    alert("Failed to resolve request: " + err.message);
+  }
+}
 
 // --- 8. Whitelist Management ---
 document.querySelectorAll(".tab-btn").forEach((btn) => {

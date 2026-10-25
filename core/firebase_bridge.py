@@ -65,6 +65,10 @@ class FirebaseCloudBridge:
                 status["last_seen"] = int(time.time())
                 self.push_data("/focus/status.json", status)
 
+                # Sync student access requests every loop
+                requests = self.coordinator.get_access_requests()
+                self.push_data("/focus/requests.json", requests)
+
                 # Sync installed apps every 120 seconds
                 if time.time() - last_apps_sync > 120:
                     try:
@@ -190,6 +194,12 @@ class FirebaseCloudBridge:
         # Handle rules sync if rules were updated remotely
         if action == "sync_rules" and "rules" in cmd_obj:
             self.coordinator.update_rules(cmd_obj["rules"])
+
+        # Handle access request resolution from cloud
+        if action == "resolve_request":
+            req_id = cmd_obj.get("request_id") or cmd_obj.get("id")
+            decision = cmd_obj.get("decision", "reject")
+            self.coordinator.resolve_access_request(req_id, decision)
 
         # Push immediate confirmation
         self.push_data("/focus/command_ack.json", {

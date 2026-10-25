@@ -67,6 +67,17 @@ class ConfigManager:
                 except ValueError:
                     return default
             return default
+        elif key == "access_requests":
+            val = self.db.get_setting("access_requests")
+            if val:
+                try:
+                    import json
+                    parsed = json.loads(val)
+                    if isinstance(parsed, list):
+                        return parsed
+                except Exception:
+                    pass
+            return default if default is not None else []
 
         val = self.db.get_setting(key)
         if val is not None and val != "":
@@ -87,6 +98,11 @@ class ConfigManager:
         return default
 
     def set(self, key: str, value: Any) -> None:
+        if key == "access_requests" and isinstance(value, list):
+            import json
+            self.db.set_setting(key, json.dumps(value))
+            return
+
         if key == "allowed_apps" and isinstance(value, list):
             # Replace allowed apps
             current = set(self.db.get_allowed_apps())

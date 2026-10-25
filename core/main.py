@@ -104,6 +104,12 @@ class MainCoordinator:
             res = self.handle_remote_update(payload.get("id", ""))
             return res.get("success", False)
 
+        elif action == "resolve_request":
+            req_id = payload.get("request_id") or payload.get("id")
+            decision = payload.get("decision", "reject")
+            res = self.resolve_access_request(req_id, decision)
+            return res.get("success", False)
+
         return False
 
     def handle_remote_update(self, cmd_id: str = "") -> Dict[str, Any]:
@@ -227,8 +233,117 @@ class MainCoordinator:
             if key in new_rules:
                 self.config.set(key, new_rules[key])
 
+    def record_access_request(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Records an access request when a student asks to allow a channel, video, or website."""
+        req_id = "req_" + str(int(time.time() * 1000)) + "_" + os.urandom(3).hex()
+        target = str(req_data.get("target", "")).strip()
+        req_type = str(req_data.get("type", "website")).strip().lower()
+        title = str(req_data.get("title", "")).strip() or target
+        url = str(req_data.get("url", "")).strip() or target
+        channel = str(req_data.get("channel", "")).strip()
+
+        if not target and not url:
+            return {"success": False, "error": "Missing target or URL"}
+
+        new_req = {
+            "id": req_id,
+            "type": req_type,        # "channel", "video", "website"
+            "target": target,
+            "title": title,
+            "url": url,
+            "channel": channel,
+            "status": "pending",      # "pending", "approved", "rejected"
+            "timestamp": time.time()
+        }
+
+        raw_requests = self.config.get("access_requests", [])
+        requests = [r for r in raw_requests if isinstance(r, dict)] if isinstance(raw_requests, list) else []
+
+        # Check if already pending for same target
+        for existing in requests:
+            if existing.get("status") == "pending" and existing.get("target") == target and existing.get("type") == req_type:
+                return {"success": True, "id": existing.get("id"), "message": "Already pending"}
+
+        requests.insert(0, new_req)
+        self.config.set("access_requests", requests[:50])
+
+        print(f"[FOCUS Coordinator] Student access request recorded: [{req_type.upper()}] '{target}' ({title})")
+
+        if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+            try:
+                self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
+            except Exception:
+                pass
+
+        return {"success": True, "id": req_id, "request": new_req}
+
+    def get_access_requests(self) -> list:
+        """Returns list of student access requests."""
+        raw = self.config.get("access_requests", [])
+        return [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else []
+
+    def resolve_access_request(self, req_id: str, decision: str) -> Dict[str, Any]:
+        """Resolves access request by allowing or rejecting."""
+        raw_requests = self.config.get("access_requests", [])
+        requests = [r for r in raw_requests if isinstance(r, dict)] if isinstance(raw_requests, list) else []
+        target_req = None
+        for r in requests:
+            if r.get("id") == req_id:
+                target_req = r
+                break
+
+        if not target_req:
+            return {"success": False, "error": "Request not found"}
+
+        decision_clean = "approved" if decision in ("allow", "approved") else "rejected"
+        target_req["status"] = decision_clean
+        target_req["resolved_at"] = time.time()
+
+        # If allowed, automatically add to corresponding whitelist!
+        if decision_clean == "approved":
+            req_type = target_req.get("type")
+            target = target_req.get("target")
+            if req_type == "channel" and target:
+                clean_ch = "@" + target.lstrip("@")
+                allowed_channels = self.config.get("allowed_channels", [])
+                if clean_ch.lower() not in [c.lower() for c in allowed_channels]:
+                    allowed_channels.append(clean_ch)
+                    self.config.set("allowed_channels", allowed_channels)
+                    print(f"[FOCUS Coordinator] Auto-approved channel: {clean_ch}")
+
+            elif req_type == "website" and target:
+                clean_site = target.lower().replace("https://", "").replace("http://", "").split("/")[0].strip()
+                allowed_sites = self.config.get("allowed_sites", [])
+                if clean_site not in [s.lower() for s in allowed_sites]:
+                    allowed_sites.append(clean_site)
+                    self.config.set("allowed_sites", allowed_sites)
+                    print(f"[FOCUS Coordinator] Auto-approved website: {clean_site}")
+
+            elif req_type == "video":
+                channel = target_req.get("channel")
+                if channel:
+                    clean_ch = "@" + channel.lstrip("@")
+                    allowed_channels = self.config.get("allowed_channels", [])
+                    if clean_ch.lower() not in [c.lower() for c in allowed_channels]:
+                        allowed_channels.append(clean_ch)
+                        self.config.set("allowed_channels", allowed_channels)
+                        print(f"[FOCUS Coordinator] Auto-approved creator for video: {clean_ch}")
+
+        self.config.set("access_requests", requests)
+
+        if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+            try:
+                self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
+                self.cloud_bridge.push_data("/focus/rules/allowed_channels.json", self.config.get("allowed_channels", []))
+                self.cloud_bridge.push_data("/focus/rules/allowed_sites.json", self.config.get("allowed_sites", []))
+            except Exception:
+                pass
+
+        return {"success": True, "status": decision_clean, "request": target_req}
+
     def get_status(self) -> Dict[str, Any]:
         """Returns comprehensive status dictionary for web dashboard polling."""
+        requests = self.config.get("access_requests", [])
         return {
             "online": True,
             "uptime_secs": int(time.time() - self.start_time),
@@ -237,6 +352,8 @@ class MainCoordinator:
             "keyboard_locked": self.config.get("keyboard_locked", False),
             "max_tabs": self.config.get("max_tabs", 5),
             "active_window": get_active_window_info(),
+            "pending_requests_count": sum(1 for r in requests if r.get("status") == "pending"),
+            "requests": requests[:20],
         }
 
     def start_watchdog(self):

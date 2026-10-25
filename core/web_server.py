@@ -262,6 +262,15 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(500, {"error": "Failed to capture screen"})
             return
 
+        # Access Requests list endpoint
+        if path == "/api/requests":
+            if not self._is_authenticated():
+                self._send_json(401, {"error": "Unauthorized"})
+                return
+            requests = self.coordinator.get_access_requests() if self.coordinator else []
+            self._send_json(200, {"requests": requests})
+            return
+
         # Serve static dashboard files
         if path == "/":
             path = "/index.html"
@@ -312,6 +321,15 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(403, {"success": False, "error": "Invalid PIN"})
             return
 
+        # Student Access Request endpoint (Unauthenticated - called from extension popup & blocked page)
+        if path == "/api/request_access":
+            if self.coordinator:
+                res = self.coordinator.record_access_request(payload)
+                self._send_json(200, res)
+            else:
+                self._send_json(500, {"error": "Coordinator unavailable"})
+            return
+
         # All other POST endpoints require authentication
         if not self._is_authenticated():
             self._send_json(401, {"error": "Unauthorized"})
@@ -322,6 +340,17 @@ class FocusRequestHandler(BaseHTTPRequestHandler):
             action = payload.get("action")
             result = self.coordinator.handle_action(action, payload) if self.coordinator else False
             self._send_json(200, {"success": result, "action": action})
+            return
+
+        # Resolve Access Request endpoint (Allow / Reject)
+        if path == "/api/resolve_request":
+            req_id = payload.get("id") or payload.get("request_id")
+            decision = payload.get("decision", "reject")
+            if self.coordinator:
+                res = self.coordinator.resolve_access_request(req_id, decision)
+                self._send_json(200, res)
+            else:
+                self._send_json(500, {"error": "Coordinator unavailable"})
             return
 
         # Whitelist update endpoint

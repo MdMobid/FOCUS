@@ -99,20 +99,6 @@
         </div>
       </div>
       <div class="status-container">
-        <div class="emergency-shortcut-badge" title="Workstation physical bypass shortcut">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <line x1="6" y1="8" x2="6" y2="8" />
-            <line x1="10" y1="8" x2="10" y2="8" />
-            <line x1="14" y1="8" x2="14" y2="8" />
-            <line x1="18" y1="8" x2="18" y2="8" />
-            <line x1="6" y1="12" x2="6" y2="12" />
-            <line x1="18" y1="12" x2="18" y2="12" />
-            <line x1="8" y1="16" x2="16" y2="16" />
-          </svg>
-          <span>Ctrl+Alt+Shift+P</span>
-        </div>
         <div class="status-pill online" id="status-pill">
           <span class="dot"></span>
           <span id="status-text">Connected</span>
@@ -321,7 +307,31 @@
         </div>
       </section>
 
-      <!-- 5. Whitelist Management -->
+      <!-- 5. Access Requests & Notifications -->
+      <section class="card full-width" id="section-access-requests">
+        <div class="card-header">
+          <h3>
+            <div class="card-header-icon" style="color: var(--accent-emerald);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </div>
+            Access Requests & Notifications
+          </h3>
+          <span class="badge badge-primary" id="pending-requests-badge">0 Pending</span>
+        </div>
+        <p class="section-desc">Study access requests submitted from your brother's PC. Approve to whitelist instantly,
+          reject to dismiss, or view to inspect content first.</p>
+
+        <div id="requests-list-container" class="requests-well">
+          <div class="no-requests-msg" id="no-requests-placeholder">No pending access requests. System is operating
+            normally.</div>
+        </div>
+      </section>
+
+      <!-- 6. Whitelist Management -->
       <section class="card full-width">
         <div class="card-header">
           <h3>
