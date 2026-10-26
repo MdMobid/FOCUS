@@ -40,10 +40,12 @@ echo [*] Stopping background services and watchdog...
 taskkill /f /im pythonw.exe >nul 2>&1
 taskkill /f /im python.exe >nul 2>&1
 
-:: 4. Remove Task Scheduler startup task & Registry Run key
-echo [*] Removing Task Scheduler startup task...
+:: 4. Remove Task Scheduler startup task & Registry Run keys & Startup folder
+echo [*] Removing Task Scheduler startup task & autostart hooks...
 schtasks /delete /tn "FOCUSParentGuard" /f >nul 2>&1
 reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /f >nul 2>&1
+del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\FOCUS_Startup.vbs" >nul 2>&1
 
 :: 5. Restore Task Manager Policy
 echo [*] Restoring Windows policies & Task Manager...

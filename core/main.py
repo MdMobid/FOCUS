@@ -46,7 +46,7 @@ def acquire_single_instance_mutex(name: str = "FOCUS_Daemon_SingleInstance_Mutex
 from config_manager import config
 from keyboard_hook import KeyboardGuard
 from process_guard import get_active_window_info
-from registry_policy import set_task_manager_disabled, setup_startup_entry
+from registry_policy import set_task_manager_disabled
 import system_power
 from web_server import EmbeddedWebServer
 from firebase_bridge import FirebaseCloudBridge
@@ -534,11 +534,6 @@ class MainCoordinator:
         self.config.set("keyboard_locked", False)
         self.config.set("focus_mode", False)
         self.config.set("focus_expires_at", 0)
-        # Ensure Windows autostart entry is active
-        try:
-            setup_startup_entry()
-        except Exception as exc:
-            print(f"[FOCUS Coordinator] Startup registration warning: {exc}")
 
         # Spawn watchdog
         self.start_watchdog()

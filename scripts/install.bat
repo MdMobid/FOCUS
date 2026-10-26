@@ -67,16 +67,13 @@ set "EXTENSION_DIR=%PROJECT_DIR%\extension"
 echo [OK] Project Directory: %PROJECT_DIR%
 echo [OK] Target Daemon: %MAIN_SCRIPT%
 
-:: 4. Register Windows Task Scheduler (Auto-Start on Boot/Logon with Highest Privileges)
+:: 4. Register Windows Auto-Start (Task Scheduler + HKCU Run Key + Startup Folder)
 echo.
-echo [*] Configuring Windows Auto-Start Task...
+echo [*] Configuring Windows Auto-Start Task & Startup hooks...
 schtasks /create /tn "FOCUSParentGuard" /tr "\"%RUNNER_EXE%\" \"%MAIN_SCRIPT%\"" /sc onlogon /rl highest /f >nul 2>&1
-if %errorLevel% equ 0 (
-    echo [OK] Task Scheduler auto-start registered with HIGHEST privileges!
-) else (
-    echo [!] Task scheduler registration warning. Falling back to Registry Run Key.
-    reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /t REG_SZ /d "\"%RUNNER_EXE%\" \"%MAIN_SCRIPT%\"" /f >nul 2>&1
-)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "FOCUSParentGuard" /t REG_SZ /d "\"%RUNNER_EXE%\" \"%MAIN_SCRIPT%\"" /f >nul 2>&1
+python -c "import sys; sys.path.insert(0, r'%PROJECT_DIR%\core'); from registry_policy import setup_startup_entry; setup_startup_entry()" >nul 2>&1
+echo [OK] Windows Auto-Start registered successfully!
 
 :: 5. Register Chromium Enterprise Policies (Chrome & Edge)
 echo.
