@@ -319,10 +319,25 @@ class MainCoordinator:
             return err_data
 
     def update_rules(self, new_rules: Dict[str, Any]):
-        """Updates whitelists from web dashboard and mirrors to rules.json."""
+        """Updates whitelists and states from web dashboard and mirrors to rules.json."""
         for key in ("allowed_sites", "allowed_channels", "allowed_videos", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
             if key in new_rules:
                 self.config.set(key, new_rules[key])
+
+        if "focus_mode" in new_rules:
+            focus_val = bool(new_rules["focus_mode"])
+            exp_val = float(new_rules.get("focus_expires_at", self.config.get("focus_expires_at", 0)) or 0)
+            if focus_val and exp_val > 0 and time.time() >= exp_val:
+                focus_val = False
+                exp_val = 0.0
+            self.config.set("focus_mode", focus_val)
+            self.config.set("focus_expires_at", exp_val)
+            set_task_manager_disabled(focus_val)
+
+        if "keyboard_locked" in new_rules:
+            keylock_val = bool(new_rules["keyboard_locked"])
+            self.config.set("keyboard_locked", keylock_val)
+            self.keyboard_guard.set_locked(keylock_val)
 
         # Atomically mirror updated rules to config/rules.json on disk
         try:
@@ -514,26 +529,34 @@ class MainCoordinator:
         print("          FOCUS: Parental Control & Focus Manager          ")
         print("=" * 60)
 
-        # ── SAFETY DEFAULTS ────────────────────────────────────────────────
-        # Always boot with keyboard UNLOCKED and Focus Mode OFF, regardless
-        # of whatever state Firebase may have stored from the previous session.
-        # These are re-applied AFTER cloud_bridge.start() so they win any race.
-        self.config.set("keyboard_locked", False)
-        self.config.set("focus_mode", False)
-        self.config.set("focus_expires_at", 0)
-        self.keyboard_guard.set_locked(False)
+        # ── RESTORE ACTIVE STATE ACROSS BOOT / REBOOT ──────────────────────
+        # Restore Focus Mode state from persistent database
+        focus_active = bool(self.config.get("focus_mode", False))
+        expires_at = float(self.config.get("focus_expires_at", 0) or 0)
+
+        # Check if scheduled focus mode expired while the PC was powered off
+        if focus_active and expires_at > 0 and time.time() >= expires_at:
+            print("[FOCUS Coordinator] Scheduled Focus Mode expired while offline. Resetting to standby.")
+            focus_active = False
+            expires_at = 0.0
+            self.config.set("focus_mode", False)
+            self.config.set("focus_expires_at", 0.0)
+            set_task_manager_disabled(False)
+        else:
+            set_task_manager_disabled(focus_active)
+            if focus_active:
+                print(f"[FOCUS Coordinator] Resuming active Focus Mode from previous session (expires_at={expires_at}).")
+
+        # Restore Keyboard Lock state from persistent database
+        keylock_active = bool(self.config.get("keyboard_locked", False))
+        self.keyboard_guard.set_locked(keylock_active)
+        if keylock_active:
+            print("[FOCUS Coordinator] Resuming active Hardware Keyboard Lock from previous session.")
 
         # Start subsystems
         self.keyboard_guard.start()
         self.web_server.start()
         self.cloud_bridge.start()
-
-        # Re-apply safety defaults a second time after cloud bridge startup
-        # (firebase_bridge._sync_initial_rules may run during .start() and
-        # overwrite local config if rules arrive before our set() calls above)
-        self.config.set("keyboard_locked", False)
-        self.config.set("focus_mode", False)
-        self.config.set("focus_expires_at", 0)
 
         # Spawn watchdog
         self.start_watchdog()

@@ -395,22 +395,14 @@ async function pollStatus() {
       statusPill.className = "status-pill online";
       statusText.textContent = fbUrl ? "Cloud" : "Local";
 
-      // PC just came back online after being offline — freeze toggles so the
-      // daemon's startup safety reset (focus=false, keylock=false) doesn't
-      // visually snap the parent's switches back.
       if (_pcWasOffline) {
         _pcWasOffline = false;
         _lastOnlineTime = Date.now();
-        const freeze = Date.now();
-        lastFocusToggleTime = freeze;
-        lastKeylockToggleTime = freeze;
-        lastTabChangeTime = freeze;
-        console.log("[FOCUS] PC reconnected — freezing toggle updates for", RECONNECT_FREEZE_MS / 1000, "s");
       }
     } else {
       statusPill.className = "status-pill offline";
       statusText.textContent = fbUrl ? "PC Offline" : "Disconnected";
-      _pcWasOffline = true;  // Mark that PC was seen offline so we freeze on next reconnect
+      _pcWasOffline = true;
     }
 
     // Focus Mode (prevent snapback while user recently clicked OR just reconnected)

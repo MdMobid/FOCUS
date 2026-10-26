@@ -266,8 +266,6 @@ class FirebaseCloudBridge:
 
     def _sync_initial_rules(self):
         """Syncs master rules between Firebase RTDB and local PC."""
-        STARTUP_RESET_KEYS = {"keyboard_locked", "focus_mode", "focus_expires_at"}
-
         try:
             # Sync parent PIN hash securely to Firebase RTDB for web dashboard auth
             pin_hash = self.coordinator.config.get("pin_hash", "")
@@ -280,10 +278,14 @@ class FirebaseCloudBridge:
                 data_str = resp.read().decode("utf-8")
                 remote_data = json.loads(data_str) if data_str else None
                 if remote_data and isinstance(remote_data, dict):
-                    # Strip safety-critical keys — they are always reset locally on boot
-                    for key in STARTUP_RESET_KEYS:
-                        remote_data.pop(key, None)
-                    print("[FOCUS Cloud] Downloaded master rules from Firebase RTDB (safety keys excluded).")
+                    # Check if remote focus mode duration expired while offline
+                    rem_focus = bool(remote_data.get("focus_mode", False))
+                    rem_expires = float(remote_data.get("focus_expires_at", 0) or 0)
+                    if rem_focus and rem_expires > 0 and time.time() >= rem_expires:
+                        remote_data["focus_mode"] = False
+                        remote_data["focus_expires_at"] = 0.0
+
+                    print("[FOCUS Cloud] Downloaded master rules from Firebase RTDB (preserving persistent states).")
                     self.coordinator.update_rules(remote_data)
                 else:
                     # Populate Firebase RTDB with default rules
@@ -310,11 +312,16 @@ class FirebaseCloudBridge:
             except Exception:
                 pass
 
-            # Always push the safe startup defaults back to Firebase
-            # so the dashboard reflects the actual current state immediately
-            self.push_data("/focus/rules/keyboard_locked.json", False)
-            self.push_data("/focus/rules/focus_mode.json", False)
-            self.push_data("/focus/rules/focus_expires_at.json", 0)
+            # Mirror the active persistent states back to Firebase so dashboard accurately reflects reality
+            curr_focus = bool(self.coordinator.config.get("focus_mode", False))
+            curr_keylock = bool(self.coordinator.config.get("keyboard_locked", False))
+            curr_expires = float(self.coordinator.config.get("focus_expires_at", 0) or 0)
+            self.push_data("/focus/rules/keyboard_locked.json", curr_keylock)
+            self.push_data("/focus/rules/focus_mode.json", curr_focus)
+            self.push_data("/focus/rules/focus_expires_at.json", curr_expires)
+            self.push_data("/focus/status/keyboard_locked.json", curr_keylock)
+            self.push_data("/focus/status/focus_mode.json", curr_focus)
+            self.push_data("/focus/status/focus_expires_at.json", curr_expires)
 
         except Exception as exc:
             print(f"[FOCUS Cloud] Rules sync error: {exc}", file=sys.stderr)
