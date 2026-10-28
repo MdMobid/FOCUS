@@ -581,6 +581,7 @@ toggleKeylock.addEventListener("change", async () => {
 // --- 6. Tab Limiter Slider & Configurable Range Bounds ---
 function updateTabRange(minVal, maxRangeVal, shouldDispatch = true) {
   lastTabChangeTime = Date.now();
+  const oldMin = parseInt(cfgMinTabs?.value || "1", 10);
   minVal = Math.max(1, parseInt(minVal || "1", 10));
   maxRangeVal = Math.max(minVal, parseInt(maxRangeVal || "15", 10));
 
@@ -588,12 +589,16 @@ function updateTabRange(minVal, maxRangeVal, shouldDispatch = true) {
   if (cfgMaxTabsRange) cfgMaxTabsRange.value = maxRangeVal;
 
   if (tabSlider) {
+    let currVal = parseInt(tabSlider.value || minVal, 10);
+    // If slider was pinned to previous min, keep it aligned with new min
+    if (currVal === oldMin || currVal < minVal) {
+      currVal = minVal;
+    } else if (currVal > maxRangeVal) {
+      currVal = maxRangeVal;
+    }
+
     tabSlider.min = minVal;
     tabSlider.max = maxRangeVal;
-
-    let currVal = parseInt(tabSlider.value || minVal, 10);
-    if (currVal < minVal) currVal = minVal;
-    if (currVal > maxRangeVal) currVal = maxRangeVal;
     tabSlider.value = currVal;
 
     if (tabSliderVal) tabSliderVal.textContent = currVal === 1 ? "1 Tab" : `${currVal} Tabs`;

@@ -61,16 +61,47 @@ async function syncRulesWithDaemon() {
   }
 }
 
-// Enforces tab limit across all browser windows when Focus Mode is active
+// Determines if a tab counts against the student's study tab limit.
+// Excludes local parent dashboard tabs and internal devtools inspection tabs.
+function isCountableTab(tab) {
+  if (!tab || !tab.id) return false;
+  const rawUrl = tab.url || tab.pendingUrl || "";
+
+  // Never count local parent dashboard tabs (localhost / 127.0.0.1 or daemon port)
+  try {
+    if (rawUrl) {
+      const parsed = new URL(rawUrl);
+      const host = parsed.hostname.toLowerCase();
+      if (host === "localhost" || host === "127.0.0.1") return false;
+    }
+  } catch (e) {
+    if (rawUrl.includes("localhost") || rawUrl.includes("127.0.0.1")) return false;
+  }
+
+  // Never count developer tools windows
+  if (rawUrl.startsWith("devtools://") || rawUrl.startsWith("chrome-devtools://")) {
+    return false;
+  }
+
+  return true;
+}
+
+// Enforces tab limit across normal browser windows when Focus Mode is active
 function enforceTabLimits(rules) {
   if (!rules || !rules.focus_mode) return;
   const maxTabs = (typeof rules.max_tabs === "number" && rules.max_tabs >= 1) ? rules.max_tabs : 1;
 
-  chrome.tabs.query({}, (tabs) => {
-    if (!tabs || tabs.length <= maxTabs) return;
-    const excessCount = tabs.length - maxTabs;
-    const eligible = tabs.filter((t) => !t.active && !t.pinned);
-    const toClose = eligible.length >= excessCount ? eligible.slice(-excessCount) : tabs.filter((t) => !t.active).slice(-excessCount);
+  chrome.tabs.query({ windowType: "normal" }, (tabs) => {
+    if (!tabs) return;
+    const countable = tabs.filter(isCountableTab);
+    if (countable.length <= maxTabs) return;
+
+    const excessCount = countable.length - maxTabs;
+    const eligible = countable.filter((t) => !t.active && !t.pinned);
+    const toClose = eligible.length >= excessCount
+      ? eligible.slice(-excessCount)
+      : countable.filter((t) => !t.active).slice(-excessCount);
+
     for (const t of toClose) {
       if (t.id) {
         console.warn(`[FOCUS Extension] Enforcing tab limit (${maxTabs}). Closing excess tab: ${t.id}`);
@@ -94,10 +125,19 @@ chrome.tabs.onCreated.addListener((newTab) => {
 
     const maxTabs = (typeof rules.max_tabs === "number" && rules.max_tabs >= 1) ? rules.max_tabs : 1;
 
-    // Count all active tabs across all windows
-    chrome.tabs.query({}, (tabs) => {
-      if (tabs && tabs.length > maxTabs && newTab && newTab.id) {
-        console.warn(`[FOCUS Extension] Max tab limit (${maxTabs}) exceeded! Closing tab: ${newTab.id}`);
+    // If the newly created tab is excluded (e.g. parent dashboard or devtools), don't limit it
+    if (!isCountableTab(newTab)) return;
+
+    // Count all countable tabs across normal windows
+    chrome.tabs.query({ windowType: "normal" }, (tabs) => {
+      if (!tabs) return;
+      const countableTabs = tabs.filter(isCountableTab);
+      // Guarantee accurate count whether newTab is already in query results or not
+      const hasNewTab = countableTabs.some((t) => t.id === newTab.id);
+      const totalCount = hasNewTab ? countableTabs.length : (countableTabs.length + 1);
+
+      if (totalCount > maxTabs && newTab && newTab.id) {
+        console.warn(`[FOCUS Extension] Max tab limit (${maxTabs}) exceeded (${totalCount} tabs)! Closing tab: ${newTab.id}`);
         chrome.tabs.remove(newTab.id).catch(() => { });
       }
     });
