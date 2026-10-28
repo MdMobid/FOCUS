@@ -361,6 +361,40 @@
           to whitelist instantly,
           Reject to dismiss, or View to inspect URL.</p>
 
+        <!-- Request Automation Policy Bar -->
+        <div class="request-policy-bar">
+          <div class="policy-selector-label">
+            <span>Automation Policy</span>
+            <span class="policy-status-indicator" id="policy-active-label">Manual Review</span>
+          </div>
+          <div class="policy-segmented-control" role="group" aria-label="Request Automation Policy">
+            <button type="button" class="policy-btn active" data-policy="manual" id="policy-btn-manual">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span>Manual</span>
+            </button>
+            <button type="button" class="policy-btn" data-policy="approve" id="policy-btn-approve">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Auto-Approve</span>
+            </button>
+            <button type="button" class="policy-btn" data-policy="decline" id="policy-btn-decline">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>Auto-Decline</span>
+            </button>
+          </div>
+          <label class="policy-focus-subrow" id="policy-focus-subrow" title="Automatically decline requests when Strict Study Focus is active">
+            <input type="checkbox" id="check-auto-decline-focus">
+            <span class="policy-subrow-text">Auto-decline requests while Strict Study Focus is ON</span>
+          </label>
+        </div>
+
         <div id="requests-list-container" class="requests-well">
           <div class="no-requests-msg" id="no-requests-placeholder">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

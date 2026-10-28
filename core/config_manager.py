@@ -59,6 +59,12 @@ class ConfigManager:
         elif key == "keyboard_locked":
             val = self.db.get_setting("keyboard_locked")
             return val == "1" if val is not None else default
+        elif key == "auto_request_policy":
+            val = self.db.get_setting("auto_request_policy")
+            return val if val in ("manual", "approve", "decline") else (default or "manual")
+        elif key == "auto_decline_during_focus":
+            val = self.db.get_setting("auto_decline_during_focus")
+            return val == "1" if val is not None else bool(default)
         elif key in ("focus_expires_at", "server_port", "max_tabs", "min_tabs", "max_tabs_range"):
             val = self.db.get_setting(key)
             if val is not None:

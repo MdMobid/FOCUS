@@ -201,6 +201,22 @@ class MainCoordinator:
             res = self.delete_access_request(req_id, target)
             return res.get("success", False)
 
+        elif action == "set_request_policy":
+            policy = str(payload.get("policy", "manual")).strip().lower()
+            if policy in ("manual", "approve", "decline"):
+                self.config.set("auto_request_policy", policy)
+            if "auto_decline_during_focus" in payload:
+                self.config.set("auto_decline_during_focus", bool(payload.get("auto_decline_during_focus", False)))
+            if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
+                try:
+                    self.cloud_bridge.push_data("/focus/rules/auto_request_policy.json", self.config.get("auto_request_policy", "manual"))
+                    self.cloud_bridge.push_data("/focus/rules/auto_decline_during_focus.json", self.config.get("auto_decline_during_focus", False))
+                    self.cloud_bridge.push_data("/focus/status/auto_request_policy.json", self.config.get("auto_request_policy", "manual"))
+                    self.cloud_bridge.push_data("/focus/status/auto_decline_during_focus.json", self.config.get("auto_decline_during_focus", False))
+                except Exception:
+                    pass
+            return True
+
         return False
 
     def handle_remote_update(self, cmd_id: str = "") -> Dict[str, Any]:
@@ -339,6 +355,14 @@ class MainCoordinator:
             self.config.set("keyboard_locked", keylock_val)
             self.keyboard_guard.set_locked(keylock_val)
 
+        if "auto_request_policy" in new_rules:
+            policy_val = str(new_rules["auto_request_policy"]).strip().lower()
+            if policy_val in ("manual", "approve", "decline"):
+                self.config.set("auto_request_policy", policy_val)
+
+        if "auto_decline_during_focus" in new_rules:
+            self.config.set("auto_decline_during_focus", bool(new_rules["auto_decline_during_focus"]))
+
         # Atomically mirror updated rules to config/rules.json on disk
         try:
             rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
@@ -384,20 +408,41 @@ class MainCoordinator:
 
         print(f"[FOCUS Coordinator] Student access request recorded: [{req_type.upper()}] '{target}' ({title})")
 
+        # Evaluate automated request policy
+        policy = self.config.get("auto_request_policy", "manual")
+        if self.config.get("focus_mode", False) and self.config.get("auto_decline_during_focus", False):
+            policy = "decline"
+
+        if policy == "approve":
+            print(f"[FOCUS Coordinator] Auto-Approving request '{req_id}' per policy.")
+            res = self.resolve_access_request(req_id, "allow", resolved_by="auto_approve")
+            if res.get("success"):
+                res["auto_resolved"] = True
+                res["policy"] = "auto_approve"
+                return res
+
+        elif policy == "decline":
+            print(f"[FOCUS Coordinator] Auto-Declining request '{req_id}' per policy.")
+            res = self.resolve_access_request(req_id, "reject", resolved_by="auto_decline")
+            if res.get("success"):
+                res["auto_resolved"] = True
+                res["policy"] = "auto_decline"
+                return res
+
         if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
             try:
                 self.cloud_bridge.push_data("/focus/requests.json", self.get_access_requests())
             except Exception:
                 pass
 
-        return {"success": True, "id": req_id, "request": new_req}
+        return {"success": True, "id": req_id, "status": "pending", "request": new_req}
 
     def get_access_requests(self) -> list:
         """Returns list of student access requests."""
         raw = self.config.get("access_requests", [])
         return [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else []
 
-    def resolve_access_request(self, req_id: str, decision: str) -> Dict[str, Any]:
+    def resolve_access_request(self, req_id: str, decision: str, resolved_by: str = "manual") -> Dict[str, Any]:
         """Resolves access request by allowing or rejecting."""
         raw_requests = self.config.get("access_requests", [])
         requests = [r for r in raw_requests if isinstance(r, dict)] if isinstance(raw_requests, list) else []
@@ -413,6 +458,7 @@ class MainCoordinator:
         decision_clean = "approved" if decision in ("allow", "approved") else "rejected"
         target_req["status"] = decision_clean
         target_req["resolved_at"] = time.time()
+        target_req["resolved_by"] = resolved_by
 
         # If allowed, automatically add to corresponding whitelist!
         if decision_clean == "approved":
@@ -497,6 +543,8 @@ class MainCoordinator:
             "max_tabs": self.config.get("max_tabs", 1),
             "min_tabs": self.config.get("min_tabs", 1),
             "max_tabs_range": self.config.get("max_tabs_range", 15),
+            "auto_request_policy": self.config.get("auto_request_policy", "manual"),
+            "auto_decline_during_focus": self.config.get("auto_decline_during_focus", False),
             "active_window": get_active_window_info(),
             "pending_requests_count": sum(1 for r in requests if r.get("status") == "pending"),
             "requests": requests[:20],

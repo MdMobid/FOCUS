@@ -42,13 +42,44 @@ document.addEventListener("DOMContentLoaded", () => {
         })
       })
         .then((res) => res.json())
-        .then(() => {
-          btnAsk.textContent = "✓ Website Request Dispatched";
-          btnAsk.style.background = "#193d2c";
-          btnAsk.style.borderColor = "#2f7a55";
-          if (toastBox) {
-            toastBox.textContent = "✓ Request sent to parent. They can approve it from their dashboard.";
-            toastBox.style.display = "block";
+        .then((data) => {
+          if (data && data.status === "approved") {
+            btnAsk.textContent = "✓ Auto-Approved by Parent!";
+            btnAsk.style.background = "#193d2c";
+            btnAsk.style.borderColor = "#2f7a55";
+            if (toastBox) {
+              toastBox.textContent = "✓ Auto-Approved by Parent Policy! Loading website in 1.5s...";
+              toastBox.style.background = "#13241c";
+              toastBox.style.borderColor = "#1f523a";
+              toastBox.style.color = "#7de0ae";
+              toastBox.style.display = "block";
+            }
+            setTimeout(() => {
+              if (targetUrl && targetUrl !== "Restricted URL") {
+                window.location.href = targetUrl;
+              } else {
+                window.location.reload();
+              }
+            }, 1500);
+          } else if (data && data.status === "rejected") {
+            btnAsk.textContent = "✕ Request Declined";
+            btnAsk.style.background = "#3e1b15";
+            btnAsk.style.borderColor = "#752d21";
+            if (toastBox) {
+              toastBox.textContent = "✕ Access request was declined by parent policy.";
+              toastBox.style.background = "#2a1515";
+              toastBox.style.borderColor = "#5c2525";
+              toastBox.style.color = "#f87171";
+              toastBox.style.display = "block";
+            }
+          } else {
+            btnAsk.textContent = "✓ Website Request Dispatched";
+            btnAsk.style.background = "#193d2c";
+            btnAsk.style.borderColor = "#2f7a55";
+            if (toastBox) {
+              toastBox.textContent = "✓ Request sent to parent. They can approve it from their dashboard.";
+              toastBox.style.display = "block";
+            }
           }
         })
         .catch(() => {

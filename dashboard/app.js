@@ -233,6 +233,31 @@ async function sendAction(action, extraPayload = {}) {
           currentRules.max_tabs_range = extraPayload.max_tabs_range;
           if (extraPayload.max_tabs !== undefined) currentRules.max_tabs = extraPayload.max_tabs;
         }
+      } else if (action === "set_request_policy") {
+        if (extraPayload.policy !== undefined) {
+          await fetch(`${cleanUrl}/focus/status/auto_request_policy.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(extraPayload.policy),
+          });
+          await fetch(`${cleanUrl}/focus/rules/auto_request_policy.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(extraPayload.policy),
+          });
+        }
+        if (extraPayload.auto_decline_during_focus !== undefined) {
+          await fetch(`${cleanUrl}/focus/status/auto_decline_during_focus.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Boolean(extraPayload.auto_decline_during_focus)),
+          });
+          await fetch(`${cleanUrl}/focus/rules/auto_decline_during_focus.json?auth=${fbSecret}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Boolean(extraPayload.auto_decline_during_focus)),
+          });
+        }
       }
     } catch (e) { }
   } else {
@@ -466,6 +491,11 @@ async function pollStatus() {
         tabSliderVal.textContent = val === 1 ? "1 Tab" : `${val} Tabs`;
         tabCountBadge.textContent = `${val} ${val === 1 ? 'Tab' : 'Tabs'} Max`;
       }
+    }
+
+    // Request Automation Policy
+    if (data.auto_request_policy !== undefined) {
+      updatePolicyUI(data.auto_request_policy, Boolean(data.auto_decline_during_focus));
     }
 
     // Update Access Requests
@@ -872,13 +902,14 @@ function renderAccessRequests(requests) {
         </div>
       `;
     } else if (req.status === "approved") {
+      const isAuto = req.resolved_by === "auto_approve";
       actionsHtml = `
         <div class="request-actions">
-          <span class="request-status-pill request-status-approved">
+          <span class="request-status-pill request-status-approved ${isAuto ? 'badge-auto-approved' : ''}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            Allowed
+            ${isAuto ? 'Auto-Approved' : 'Allowed'}
           </span>
           <div class="request-action-btns">
             <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
@@ -899,14 +930,15 @@ function renderAccessRequests(requests) {
         </div>
       `;
     } else {
+      const isAuto = req.resolved_by === "auto_decline";
       actionsHtml = `
         <div class="request-actions">
-          <span class="request-status-pill request-status-rejected">
+          <span class="request-status-pill request-status-rejected ${isAuto ? 'badge-auto-declined' : ''}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
-            Rejected
+            ${isAuto ? 'Auto-Declined' : 'Rejected'}
           </span>
           <div class="request-action-btns">
             <button class="btn-request btn-request-view" data-url="${encodeURIComponent(url)}" title="Open link in new tab">
@@ -984,6 +1016,55 @@ pendingRequestsBadge?.addEventListener("click", () => {
   _showRequestsHistory = false;
   renderAccessRequests(_currentRequests);
 });
+
+// --- Request Automation Policy State & Handlers ---
+let _currentPolicy = "manual";
+let _lastPolicyChangeTime = 0;
+
+function updatePolicyUI(policy, declineDuringFocus) {
+  // Prevent snapback if user recently clicked policy buttons
+  if (Date.now() - _lastPolicyChangeTime < 3000) return;
+  _currentPolicy = policy || "manual";
+
+  document.querySelectorAll(".policy-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-policy") === _currentPolicy);
+  });
+
+  const activeLabel = document.getElementById("policy-active-label");
+  if (activeLabel) {
+    activeLabel.className = `policy-status-indicator mode-${_currentPolicy}`;
+    if (_currentPolicy === "approve") {
+      activeLabel.textContent = "⚡ Auto-Approve Active";
+    } else if (_currentPolicy === "decline") {
+      activeLabel.textContent = "⛔ Auto-Decline Active";
+    } else {
+      activeLabel.textContent = "Manual Review";
+    }
+  }
+
+  const checkFocus = document.getElementById("check-auto-decline-focus");
+  if (checkFocus && declineDuringFocus !== undefined && !checkFocus.matches(":focus")) {
+    checkFocus.checked = Boolean(declineDuringFocus);
+  }
+}
+
+document.querySelectorAll(".policy-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const policy = btn.getAttribute("data-policy");
+    if (!policy) return;
+    _lastPolicyChangeTime = Date.now();
+    updatePolicyUI(policy);
+    await sendAction("set_request_policy", { policy });
+  });
+});
+
+const checkAutoDeclineFocus = document.getElementById("check-auto-decline-focus");
+if (checkAutoDeclineFocus) {
+  checkAutoDeclineFocus.addEventListener("change", async () => {
+    _lastPolicyChangeTime = Date.now();
+    await sendAction("set_request_policy", { auto_decline_during_focus: checkAutoDeclineFocus.checked });
+  });
+}
 
 async function handleResolveRequest(reqId, decision, req) {
   try {

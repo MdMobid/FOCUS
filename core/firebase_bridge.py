@@ -316,12 +316,18 @@ class FirebaseCloudBridge:
             curr_focus = bool(self.coordinator.config.get("focus_mode", False))
             curr_keylock = bool(self.coordinator.config.get("keyboard_locked", False))
             curr_expires = float(self.coordinator.config.get("focus_expires_at", 0) or 0)
+            curr_policy = self.coordinator.config.get("auto_request_policy", "manual")
+            curr_focus_decline = bool(self.coordinator.config.get("auto_decline_during_focus", False))
             self.push_data("/focus/rules/keyboard_locked.json", curr_keylock)
             self.push_data("/focus/rules/focus_mode.json", curr_focus)
             self.push_data("/focus/rules/focus_expires_at.json", curr_expires)
+            self.push_data("/focus/rules/auto_request_policy.json", curr_policy)
+            self.push_data("/focus/rules/auto_decline_during_focus.json", curr_focus_decline)
             self.push_data("/focus/status/keyboard_locked.json", curr_keylock)
             self.push_data("/focus/status/focus_mode.json", curr_focus)
             self.push_data("/focus/status/focus_expires_at.json", curr_expires)
+            self.push_data("/focus/status/auto_request_policy.json", curr_policy)
+            self.push_data("/focus/status/auto_decline_during_focus.json", curr_focus_decline)
 
         except Exception as exc:
             print(f"[FOCUS Cloud] Rules sync error: {exc}", file=sys.stderr)

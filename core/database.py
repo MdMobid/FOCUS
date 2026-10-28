@@ -107,7 +107,9 @@ class FocusDatabase:
             "max_tabs_range": "15",
             "server_port": "8443",
             "firebase_url": "",
-            "firebase_secret": ""
+            "firebase_secret": "",
+            "auto_request_policy": "manual",
+            "auto_decline_during_focus": "0"
         }
         for k, v in default_settings.items():
             if self.get_setting(k) is None:
@@ -267,6 +269,8 @@ class FocusDatabase:
             "max_tabs_range": int(self.get_setting("max_tabs_range", "15")),
             "server_port": int(self.get_setting("server_port", "8443")),
             "firebase_url": self.get_setting("firebase_url", ""),
+            "auto_request_policy": self.get_setting("auto_request_policy", "manual") or "manual",
+            "auto_decline_during_focus": self.get_setting("auto_decline_during_focus") == "1",
             "allowed_sites": self.get_allowed_sites(),
             "allowed_channels": self.get_allowed_channels(),
             "allowed_videos": self.get_allowed_videos(),

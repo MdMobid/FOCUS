@@ -188,11 +188,24 @@ function showBlockOverlay(channelName) {
       })
     })
       .then(r => r.json())
-      .then(() => {
-        this.innerHTML = "✓ Channel Request Dispatched";
-        this.style.background = "#193d2c";
-        this.style.borderColor = "#2f7a55";
-        showToast("✓ Request sent to parent. They can approve it from their dashboard.");
+      .then((data) => {
+        if (data && data.status === "approved") {
+          this.innerHTML = "✓ Channel Auto-Approved!";
+          this.style.background = "#193d2c";
+          this.style.borderColor = "#2f7a55";
+          showToast("✓ Channel Auto-Approved by Parent! Unlocking in 1.5s...");
+          setTimeout(() => window.location.reload(), 1500);
+        } else if (data && data.status === "rejected") {
+          this.innerHTML = "✕ Request Declined";
+          this.style.background = "#3e1b15";
+          this.style.borderColor = "#752d21";
+          showToast("✕ Request was declined by parent policy.");
+        } else {
+          this.innerHTML = "✓ Channel Request Dispatched";
+          this.style.background = "#193d2c";
+          this.style.borderColor = "#2f7a55";
+          showToast("✓ Request sent to parent. They can approve it from their dashboard.");
+        }
       })
       .catch(() => {
         this.innerHTML = "✓ Request Queued";
@@ -217,11 +230,24 @@ function showBlockOverlay(channelName) {
       })
     })
       .then(r => r.json())
-      .then(() => {
-        this.innerHTML = "✓ Video Request Dispatched";
-        this.style.background = "#193d2c";
-        this.style.borderColor = "#2f7a55";
-        showToast("✓ Video request sent to parent for review.");
+      .then((data) => {
+        if (data && data.status === "approved") {
+          this.innerHTML = "✓ Video Auto-Approved!";
+          this.style.background = "#193d2c";
+          this.style.borderColor = "#2f7a55";
+          showToast("✓ Video Auto-Approved by Parent! Unlocking in 1.5s...");
+          setTimeout(() => window.location.reload(), 1500);
+        } else if (data && data.status === "rejected") {
+          this.innerHTML = "✕ Request Declined";
+          this.style.background = "#3e1b15";
+          this.style.borderColor = "#752d21";
+          showToast("✕ Request was declined by parent policy.");
+        } else {
+          this.innerHTML = "✓ Video Request Dispatched";
+          this.style.background = "#193d2c";
+          this.style.borderColor = "#2f7a55";
+          showToast("✓ Video request sent to parent for review.");
+        }
       })
       .catch(() => {
         this.innerHTML = "✓ Request Queued";
