@@ -193,8 +193,8 @@ function showBlockOverlay(channelName) {
           this.innerHTML = "✓ Channel Auto-Approved!";
           this.style.background = "#193d2c";
           this.style.borderColor = "#2f7a55";
-          showToast("✓ Channel Auto-Approved by Parent! Unlocking in 1.5s...");
-          setTimeout(() => window.location.reload(), 1500);
+          showToast("✓ Channel Auto-Approved by Parent! Unlocking...");
+          removeBlockOverlay();
         } else if (data && data.status === "rejected") {
           this.innerHTML = "✕ Request Declined";
           this.style.background = "#3e1b15";
@@ -235,8 +235,12 @@ function showBlockOverlay(channelName) {
           this.innerHTML = "✓ Video Auto-Approved!";
           this.style.background = "#193d2c";
           this.style.borderColor = "#2f7a55";
-          showToast("✓ Video Auto-Approved by Parent! Unlocking in 1.5s...");
-          setTimeout(() => window.location.reload(), 1500);
+          showToast("✓ Video Auto-Approved by Parent! Unlocking...");
+          removeBlockOverlay();
+          const video = document.querySelector("video");
+          if (video && video.paused) {
+            video.play().catch(() => {});
+          }
         } else if (data && data.status === "rejected") {
           this.innerHTML = "✕ Request Declined";
           this.style.background = "#3e1b15";
