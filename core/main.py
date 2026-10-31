@@ -334,6 +334,16 @@ class MainCoordinator:
                 self.cloud_bridge.push_data("/focus/update_status.json", err_data)
             return err_data
 
+    def _mirror_rules_to_disk(self):
+        """Atomically mirrors current configuration rules to config/rules.json on disk."""
+        try:
+            rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
+            current = self.config.get_all()
+            with open(rules_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+        except Exception as e:
+            print(f"[FOCUS Coordinator] Warning: Could not write rules.json: {e}")
+
     def update_rules(self, new_rules: Dict[str, Any]):
         """Updates whitelists and states from web dashboard and mirrors to rules.json."""
         for key in ("allowed_sites", "allowed_channels", "allowed_videos", "max_tabs", "min_tabs", "max_tabs_range", "firebase_url", "firebase_secret"):
@@ -364,13 +374,7 @@ class MainCoordinator:
             self.config.set("auto_decline_during_focus", bool(new_rules["auto_decline_during_focus"]))
 
         # Atomically mirror updated rules to config/rules.json on disk
-        try:
-            rules_path = os.path.join(os.path.dirname(SCRIPT_DIR), "config", "rules.json")
-            current = self.config.get_all()
-            with open(rules_path, "w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2)
-        except Exception as e:
-            print(f"[FOCUS Coordinator] Warning: Could not write rules.json: {e}")
+        self._mirror_rules_to_disk()
 
     def record_access_request(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
         """Records an access request when a student asks to allow a channel, video, or website."""
@@ -494,6 +498,7 @@ class MainCoordinator:
                     print(f"[FOCUS Coordinator] Auto-approved specific video ID: {video_id} (channel remains restricted)")
 
         self.config.set("access_requests", requests)
+        self._mirror_rules_to_disk()
 
         if hasattr(self, 'cloud_bridge') and self.cloud_bridge:
             try:

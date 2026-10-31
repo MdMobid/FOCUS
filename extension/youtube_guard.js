@@ -63,6 +63,23 @@ try {
   }
 } catch (e) { }
 
+// Periodically sync directly with daemon in content script so YouTube updates immediately on auto/manual approvals
+async function syncYouTubeRulesDirectly() {
+  try {
+    const res = await fetch("http://127.0.0.1:8443/api/rules", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.allowed_sites) {
+        chrome.storage.local.set({ focus_rules: data }, () => {
+          updateDistractionFreeStyles();
+          inspectCurrentChannel();
+        });
+      }
+    }
+  } catch (e) { }
+}
+setInterval(syncYouTubeRulesDirectly, 2500);
+
 // Distraction-Free CSS management based on focus_mode
 function updateDistractionFreeStyles() {
   safeGetRules((rules) => {
