@@ -403,31 +403,40 @@ class MainCoordinator:
         requests = [r for r in raw_requests if isinstance(r, dict)] if isinstance(raw_requests, list) else []
 
         # Check if already pending for same target
+        existing_pending = None
         for existing in requests:
             if existing.get("status") == "pending" and existing.get("target") == target and existing.get("type") == req_type:
-                return {"success": True, "id": existing.get("id"), "message": "Already pending"}
-
-        requests.insert(0, new_req)
-        self.config.set("access_requests", requests[:50])
-
-        print(f"[FOCUS Coordinator] Student access request recorded: [{req_type.upper()}] '{target}' ({title})")
+                existing_pending = existing
+                break
 
         # Evaluate automated request policy
         policy = self.config.get("auto_request_policy", "manual")
         if self.config.get("focus_mode", False) and self.config.get("auto_decline_during_focus", False):
             policy = "decline"
 
+        # If a pending request already exists and policy is manual, return already pending
+        if existing_pending and policy == "manual":
+            return {"success": True, "id": existing_pending.get("id"), "message": "Already pending", "status": "pending"}
+
+        # If already pending but policy is now auto-approve or auto-decline, resolve the existing one!
+        target_req_id = existing_pending.get("id") if existing_pending else req_id
+        if not existing_pending:
+            requests.insert(0, new_req)
+            self.config.set("access_requests", requests[:50])
+
+        print(f"[FOCUS Coordinator] Student access request recorded: [{req_type.upper()}] '{target}' ({title})")
+
         if policy == "approve":
-            print(f"[FOCUS Coordinator] Auto-Approving request '{req_id}' per policy.")
-            res = self.resolve_access_request(req_id, "allow", resolved_by="auto_approve")
+            print(f"[FOCUS Coordinator] Auto-Approving request '{target_req_id}' per policy.")
+            res = self.resolve_access_request(target_req_id, "allow", resolved_by="auto_approve")
             if res.get("success"):
                 res["auto_resolved"] = True
                 res["policy"] = "auto_approve"
                 return res
 
         elif policy == "decline":
-            print(f"[FOCUS Coordinator] Auto-Declining request '{req_id}' per policy.")
-            res = self.resolve_access_request(req_id, "reject", resolved_by="auto_decline")
+            print(f"[FOCUS Coordinator] Auto-Declining request '{target_req_id}' per policy.")
+            res = self.resolve_access_request(target_req_id, "reject", resolved_by="auto_decline")
             if res.get("success"):
                 res["auto_resolved"] = True
                 res["policy"] = "auto_decline"
